@@ -39,7 +39,7 @@ index ade0066..7ad89df 100644
    bool IsModuleActive() const;
    bool DispatchableAt(u32 address);
 diff --git a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
-index ddf0448..dbf16c4 100644
+index ddf0448..1ea3c8a 100644
 --- a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
 +++ b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
 @@ -4,6 +4,7 @@
@@ -58,7 +58,7 @@ index ddf0448..dbf16c4 100644
  
  namespace
  {
-@@ -49,6 +51,88 @@ FilePtr OpenDispatchTrace()
+@@ -49,6 +51,98 @@ FilePtr OpenDispatchTrace()
  }
  }
  
@@ -114,7 +114,17 @@ index ddf0448..dbf16c4 100644
 +        memory.Read_U32(ppc.pc) == 0x4c000064u)
 +    {
 +      SyncIn();
-+      ppc_rfi(&m_guest, ppc.pc);
++      if (m_guest.msr & PPC_MSR_PR)
++      {
++        ppc_program_exception(&m_guest, PPC_PROGRAM_PRIV, ppc.pc);
++      }
++      else
++      {
++        m_guest.msr = (m_guest.msr & ~PPC_MSR_RFI_MASK) |
++                      (m_guest.srr1 & PPC_MSR_RFI_MASK);
++        m_guest.msr &= ~PPC_MSR_POW;
++        m_guest.pc = m_guest.srr0 & ~3u;
++      }
 +      m_guest.downcount = -2;
 +      SyncOut();
 +      ++m_native_dispatches;
