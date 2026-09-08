@@ -90,7 +90,7 @@ class TextureQualityTests(unittest.TestCase):
             (root / "images/tex1_obsolete.png").touch()
             self.assertEqual(
                 unexpected_files([{"name": "tex1_expected"}], root),
-                ["images/tex1_obsolete.png"],
+                [str(Path("images") / "tex1_obsolete.png")],
             )
 
     def test_detects_opaque_source_becoming_transparent(self):
