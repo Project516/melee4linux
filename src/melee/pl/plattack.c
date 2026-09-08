@@ -10,26 +10,25 @@ void plAttack_80037590(void)
     unk_804D6480 = 1;
 }
 
-static inline void clearAttackStats(struct plAttackStats* s)
+static inline void clearAttackStats(struct plAttackStats* stats)
 {
-    int i;
-    for (i = 0; i < StatsAttack_Count; i++) {
-        s->by_attack_counts[i] = 0;
+    int attack_id;
+    for (attack_id = 0; attack_id < StatsAttack_Count; attack_id++) {
+        stats->by_attack_counts[attack_id] = 0;
     }
-    s->total = 0;
-    s->thrown_item_count = 0;
-    s->aerials_count = 0;
-    s->specials_count = 0;
-    s->x1A0_count = 0;
-    s->x1A4_count = 0;
-    s->x1A8 = 0;
+    stats->total = 0;
+    stats->thrown_item_count = 0;
+    stats->aerials_count = 0;
+    stats->specials_count = 0;
+    stats->x1A0_count = 0;
+    stats->x1A4_count = 0;
+    stats->x1A8 = 0;
 }
 
-///< brief resets the players stats
 void plAttack_8003759C(u32 slot)
 {
     plActionStats* stats;
-    int i;
+    int counter_index;
 
     stats = Player_GetActionStats((s32) slot);
 
@@ -37,8 +36,9 @@ void plAttack_8003759C(u32 slot)
     clearAttackStats(&stats->hits);
     clearAttackStats(&stats->x358_hits);
 
-    for (i = 0; i < StatsAttack_Count; i++) {
-        stats->x504[i] = 0;
+    for (counter_index = 0; counter_index < StatsAttack_Count; counter_index++)
+    {
+        stats->x504[counter_index] = 0;
     }
     stats->x568 = 0;
     stats->x570 = 0;
@@ -53,8 +53,8 @@ void plAttack_8003759C(u32 slot)
     stats->x590 = 0;
     stats->x594 = 0;
 
-    for (i = 0; i < 8; i++) {
-        stats->x598[i] = 0;
+    for (counter_index = 0; counter_index < 8; counter_index++) {
+        stats->x598[counter_index] = 0;
     }
     stats->x5BC_b0 = 0;
     stats->x5BC_b1 = 0;
@@ -64,10 +64,10 @@ void plAttack_8003759C(u32 slot)
 
 u16 plAttack_80037B08(void)
 {
-    u16 before = unk_804D6480;
+    u16 attack_instance = unk_804D6480;
     unk_804D6480 += 1;
     if (unk_804D6480 == 0) {
         unk_804D6480 = 1;
     }
-    return before;
+    return attack_instance;
 }
