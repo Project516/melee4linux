@@ -44,10 +44,9 @@ typedef struct _HSD_FreeList {
 } HSD_FreeList;
 
 typedef struct _HSD_MemoryEntry {
-    /* 0x00 */ u32 size; // Piece size in bytes, in multiples of 32.
-                         // Includes pieces in use and on free_list.
-    /* 0x04 */ u32 nb_alloc;
-    /* 0x08 */ u32 nb_free; // Pieces on free_list.
+    /* 0x00 */ u32 size;     // Bytes, in multiples of 32.
+    /* 0x04 */ u32 nb_alloc; // Pieces in use plus free pieces.
+    /* 0x08 */ u32 nb_free;  // Pieces on free_list.
     /* 0x0C */ struct _HSD_FreeList* free_list;
     // Next existing entry with a larger piece size.
     /* 0x10 */ struct _HSD_MemoryEntry* next;

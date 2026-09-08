@@ -40,7 +40,7 @@ counted in `nb_alloc`, so that count stays the same.
 
 If this list is empty, allocation walks the larger-entry chain. It takes a
 piece from the first entry with free memory and splits it at the requested
-size. The requested portion goes to the caller. The remainder goes to its
+entry's size. The requested portion goes to the caller. The remainder goes to its
 own size class as a free piece. Both counts decrease in the original larger
 entry. The requested entry gains one piece, and the remainder entry gains
 one free piece. A 96-byte free piece can therefore supply a 64-byte request
