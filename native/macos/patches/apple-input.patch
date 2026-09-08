@@ -1,0 +1,53 @@
+--- a/macos/MeleeFrontend.inc
++++ b/macos/MeleeFrontend.inc
+@@ -9,6 +9,8 @@
+ #include "InputCommon/ControllerInterface/ControllerInterface.h"
+ #include <atomic>
+ extern std::atomic<bool> g_melee_menu_open;
++#include "MeleeControllerConfig.h"
++#include "MeleeInputTest.inc"
+
+ @interface MeleeFrontend : NSObject
+ @property NSWindow* game;
+@@ -51,6 +53,7 @@
+ - (id)initWithGame:(NSWindow*)game
+ {
+   if (!(self = [super init])) return nil;
++  MeleeInput::ConfigureAppleBackend();
+   self.game = game;
+   self.preferencesPath = [[NSString stringWithUTF8String:File::GetUserPath(D_CONFIG_IDX).c_str()] stringByAppendingPathComponent:@"MeleeFrontend.plist"];
+   self.preferences = [NSMutableDictionary dictionaryWithContentsOfFile:self.preferencesPath] ?: [NSMutableDictionary new];
+@@ -223,24 +226,7 @@
+   if (device=="None") { ini.DeleteSection("GCPad"+std::to_string(sender.tag+1)); ini.GetOrCreateSection("GCPad"+std::to_string(sender.tag+1))->Set("Device", std::string{}); }
+   else
+   {
+-    s->Set("Device",device);
+-    const bool keyboard=device.starts_with("Quartz/");
+-    const char* keys[][3] = {
+-      {"Buttons/A","J","`Button A`"},{"Buttons/B","K","`Button B`"},{"Buttons/X","Space","`Button X`"},{"Buttons/Y","U","`Button Y`"},
+-      {"Buttons/Z","O","`Shoulder R`"},{"Buttons/Start","Return","Start"},
+-      {"Main Stick/Up","W","`Left Y+` | `Pad N`"},{"Main Stick/Down","S","`Left Y-` | `Pad S`"},{"Main Stick/Left","A","`Left X-` | `Pad W`"},{"Main Stick/Right","D","`Left X+` | `Pad E`"},
+-      {"C-Stick/Up","Up","`Right Y+`"},{"C-Stick/Down","Down","`Right Y-`"},{"C-Stick/Left","Left","`Right X-`"},{"C-Stick/Right","Right","`Right X+`"},
+-      {"Triggers/L","Q","`Trigger L`"},{"Triggers/R","E","`Trigger R`"},{"Triggers/L-Analog","Q","`Trigger L`"},{"Triggers/R-Analog","E","`Trigger R`"},
+-      {"D-Pad/Up","T",""},{"D-Pad/Down","G",""},{"D-Pad/Left","F",""},{"D-Pad/Right","H",""},
+-      {"Rumble/Motor","","`Motor L` | `Motor R`"}};
+-    for (const auto& k:keys)
+-    {
+-      std::string expression = k[keyboard?1:2];
+-      if (!keyboard && sender.tag==0 && *k[1])
+-        expression += (expression.empty() ? "" : " | ") + std::string("`Quartz/0/Keyboard & Mouse:") + k[1] + "`";
+-      s->Set(k[0],expression);
+-    }
+-    s->Set("Main Stick/Dead Zone",10.0); s->Set("C-Stick/Dead Zone",10.0);
++    MeleeInput::ConfigureController(s, device, (int)sender.tag);
+   }
+   if (ini.Save(path))
+   {
+@@ -297,6 +283,7 @@
+ // Runtime calls this after its defaults are installed, before game/audio/video boot.
+ extern "C" void MeleeApplyMediaPreferences()
+ {
++  MeleeInput::RunControllerTestIfRequested();
+   @autoreleasepool {
+     NSString* path=[[NSString stringWithUTF8String:File::GetUserPath(D_CONFIG_IDX).c_str()] stringByAppendingPathComponent:@"MeleeFrontend.plist"];
+     NSDictionary* prefs=[NSDictionary dictionaryWithContentsOfFile:path];

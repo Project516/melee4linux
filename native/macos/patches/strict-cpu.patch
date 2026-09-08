@@ -1,0 +1,134 @@
+diff --git a/Source/Core/Core/PowerPC/Interpreter/Interpreter.cpp b/Source/Core/Core/PowerPC/Interpreter/Interpreter.cpp
+index 2fa8cde..32c8d5a 100644
+--- a/Source/Core/Core/PowerPC/Interpreter/Interpreter.cpp
++++ b/Source/Core/Core/PowerPC/Interpreter/Interpreter.cpp
+@@ -24,6 +24,7 @@
+ #include "Core/PowerPC/PPCTables.h"
+ #include "Core/PowerPC/PowerPC.h"
+ #include "Core/PowerPC/StaticRecomp/StaticRecompCore.h"
++#include "Core/PowerPC/StaticRecomp/StrictNative.h"
+ #include "Core/System.h"
+ 
+ namespace
+@@ -119,6 +120,10 @@ bool Interpreter::HandleFunctionHooking(u32 address)
+ 
+ int Interpreter::SingleStepInner()
+ {
++  // Also covers boot and debugger paths that select the interpreter directly.
++  if (Melee::StrictNativeEnabled())
++    Melee::RejectCPUFallback("PowerPC interpreter", m_ppc_state.pc);
++
+   if (HandleFunctionHooking(m_ppc_state.pc))
+   {
+     UpdatePC();
+diff --git a/Source/Core/Core/PowerPC/JitInterface.cpp b/Source/Core/Core/PowerPC/JitInterface.cpp
+index d098c19..7698d61 100644
+--- a/Source/Core/Core/PowerPC/JitInterface.cpp
++++ b/Source/Core/Core/PowerPC/JitInterface.cpp
+@@ -18,6 +18,7 @@
+ #include "Core/PowerPC/PPCSymbolDB.h"
+ #include "Core/PowerPC/PowerPC.h"
+ #include "Core/PowerPC/StaticRecomp/StaticRecompCore.h"
++#include "Core/PowerPC/StaticRecomp/StrictNative.h"
+ #include "Core/System.h"
+ 
+ #ifdef _M_X86_64
+@@ -53,6 +54,9 @@ void JitInterface::DoState(PointerWrap& p)
+ 
+ CPUCoreBase* JitInterface::InitJitCore(PowerPC::CPUCore core)
+ {
++  if (Melee::StrictNativeEnabled() && core != PowerPC::CPUCore::StaticRecomp)
++    Melee::RejectCPUFallback("non-static CPU core", m_system.GetPPCState().pc);
++
+   switch (core)
+   {
+ #ifdef _M_X86_64
+diff --git a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.cpp b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.cpp
+index d7098a1..f7dd109 100644
+--- a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.cpp
++++ b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.cpp
+@@ -2,6 +2,7 @@
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+ #include "Core/PowerPC/StaticRecomp/StaticRecompCore.h"
++#include "Core/PowerPC/StaticRecomp/StrictNative.h"
+ 
+ #include <algorithm>
+ #include <cstdio>
+@@ -146,8 +147,7 @@ StaticRecompCore::~StaticRecompCore() = default;
+ void StaticRecompCore::Init()
+ {
+   g_static_recomp_core = this;
+-  const char* strict = std::getenv("MELEE_STRICT_NATIVE");
+-  m_strict_native = strict && strict[0] == '1';
++  m_strict_native = Melee::StrictNativeEnabled();
+   RefreshConfig();
+   m_collect_dispatch_samples = std::getenv("STATICRECOMP_DISPATCH_SAMPLES") != nullptr;
+   const char* fallback_override = std::getenv("STATICRECOMP_FALLBACK_RANGES");
+@@ -185,7 +185,10 @@ void StaticRecompCore::Init()
+   LoadModule();
+   m_idle_pc = Config::Get(Config::MAIN_STATICRECOMP_IDLE_PC);
+   m_lockstep_verifier = std::make_unique<StaticRecompLockstep::StaticRecompLockstepVerifier>(*this);
+-  m_lockstep_verifier->Init();
++  // Lockstep executes each block again in the interpreter for comparison.
++  // Keep the object for hook bookkeeping, but leave it disabled in strict mode.
++  if (!m_strict_native)
++    m_lockstep_verifier->Init();
+ 
+   if (m_strict_native)
+   {
+diff --git a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
+index 1d8b292..ddf0448 100644
+--- a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
++++ b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
+@@ -2,6 +2,7 @@
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+ #include "Core/PowerPC/StaticRecomp/StaticRecompCore.h"
++#include "Core/PowerPC/StaticRecomp/StrictNative.h"
+ #include "Core/System.h"
+ #include "Core/PowerPC/PowerPC.h"
+ #include "Core/PowerPC/Interpreter/Interpreter.h"
+@@ -277,6 +278,9 @@ void StaticRecompCore::Run()
+ 
+ void StaticRecompCore::SingleStep()
+ {
++  if (m_strict_native)
++    Melee::RejectCPUFallback("debugger single-step", m_system.GetPPCState().pc);
++
+   // Debugger stepping runs through the interpreter; state outside Run() lives
+   // in PowerPCState, so no sync is needed.
+   auto& system = m_system;
+diff --git a/Source/Core/Core/PowerPC/StaticRecomp/StrictNative.h b/Source/Core/Core/PowerPC/StaticRecomp/StrictNative.h
+new file mode 100644
+index 0000000..9ecb5a8
+--- /dev/null
++++ b/Source/Core/Core/PowerPC/StaticRecomp/StrictNative.h
+@@ -0,0 +1,27 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#pragma once
++
++#include <cstdint>
++#include <cstdio>
++#include <cstdlib>
++
++namespace Melee
++{
++// Read once so every CPU path uses the same launch-time setting.
++inline bool StrictNativeEnabled()
++{
++  static const bool enabled = [] {
++    const char* value = std::getenv("MELEE_STRICT_NATIVE");
++    return value && value[0] == '1';
++  }();
++  return enabled;
++}
++
++[[noreturn]] inline void RejectCPUFallback(const char* path, std::uint32_t pc)
++{
++  std::fprintf(stderr, "[staticrecomp] STRICT FAILURE: %s at 0x%08X\n", path, pc);
++  std::fflush(stderr);
++  std::_Exit(88);
++}
++}  // namespace Melee

@@ -1,0 +1,159 @@
+diff --git a/Source/Core/Core/Boot/Boot_BS2Emu.cpp b/Source/Core/Core/Boot/Boot_BS2Emu.cpp
+index 254c22a..d99aa5c 100644
+--- a/Source/Core/Core/Boot/Boot_BS2Emu.cpp
++++ b/Source/Core/Core/Boot/Boot_BS2Emu.cpp
+@@ -34,6 +34,8 @@
+ #include "Core/IOS/Uids.h"
+ #include "Core/PowerPC/MMU.h"
+ #include "Core/PowerPC/PowerPC.h"
++#include "Core/PowerPC/StaticRecomp/StaticRecompCore.h"
++#include "Core/PowerPC/StaticRecomp/StrictNative.h"
+ #include "Core/System.h"
+ 
+ #include "DiscIO/Enums.h"
+@@ -65,6 +67,14 @@ void CBoot::RunFunction(Core::System& system, u32 address)
+   ppc_state.pc = address;
+   LR(ppc_state) = 0x00;
+ 
++  if (Melee::StrictNativeEnabled())
++  {
++    if (!g_static_recomp_core)
++      Melee::RejectCPUFallback("boot without a static CPU core", address);
++    g_static_recomp_core->RunBootFunction();
++    return;
++  }
++
+   while (ppc_state.pc != 0x00)
+     power_pc.SingleStep();
+ }
+diff --git a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.h b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.h
+index ade0066..7ad89df 100644
+--- a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.h
++++ b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.h
+@@ -49,6 +49,7 @@ public:
+   void Shutdown() override;
+ 
+   void Run() override;
++  void RunBootFunction();
+   void SingleStep() override;
+   bool IsModuleActive() const;
+   bool DispatchableAt(u32 address);
+diff --git a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
+index ddf0448..1ea3c8a 100644
+--- a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
++++ b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
+@@ -4,6 +4,7 @@
+ #include "Core/PowerPC/StaticRecomp/StaticRecompCore.h"
+ #include "Core/PowerPC/StaticRecomp/StrictNative.h"
+ #include "Core/System.h"
++#include "Core/HLE/HLE.h"
+ #include "Core/PowerPC/PowerPC.h"
+ #include "Core/PowerPC/Interpreter/Interpreter.h"
+ #include "Core/PowerPC/StaticRecomp/StaticRecompLockstep.h"
+@@ -16,6 +17,7 @@
+ #include <cstdio>
+ #include <cstdlib>
+ #include <memory>
++#include <string_view>
+ 
+ namespace
+ {
+@@ -49,6 +51,98 @@ FilePtr OpenDispatchTrace()
+ }
+ }
+ 
++// Boot calls run while the CPU is paused. The module includes the original
++// apploader at its disc load address, so it can fill DOL sections and the FST
++// through the existing boot protocol without executing the interpreter.
++void StaticRecompCore::RunBootFunction()
++{
++  auto& memory = m_system.GetMemory();
++  auto& ppc = m_system.GetPPCState();
++  auto& power_pc = m_system.GetPowerPC();
++  auto& timing = m_system.GetCoreTiming();
++  const u32 entry = ppc.pc;
++  const u64 dispatches_before = m_native_dispatches;
++  const std::string game_id = SConfig::GetInstance().GetGameID();
++  m_module_active = m_module && (game_id.empty() || game_id == m_module->game_id);
++  if (!m_module_active)
++    Melee::RejectCPUFallback("boot without a matching native module", entry);
++
++  m_guest.ram = memory.GetRAM();
++  m_guest.ram_size = memory.GetRamSizeReal();
++  m_guest.exram = memory.GetEXRAM();
++  m_guest.exram_size = memory.GetExRamSizeReal();
++  InitLookupTable(m_guest.ram_size, m_guest.exram_size);
++  timing.Advance();
++
++  while (ppc.pc != 0)
++  {
++    if (ppc.downcount <= 0)
++      timing.Advance();
++    if (m_native_dispatches - dispatches_before >= 10000000)
++      Melee::RejectCPUFallback("native boot exceeded its dispatch limit", ppc.pc);
++
++    // RunApploader installs this report callback and its return instruction.
++    // Execute the existing host callback, then perform the verified BLR.
++    if (ppc.pc == 0x81300000u && memory.Read_U32(ppc.pc) == 0x4e800020u)
++    {
++      const u32 hook = HLE::GetHookByAddress(ppc.pc);
++      if (hook && std::string_view(HLE::GetHookNameByIndex(hook)) == "AppLoaderReport")
++      {
++        HLE::ExecuteFromJIT(ppc.pc, hook, m_system);
++        ppc.pc = ppc.spr[SPR_LR];
++        ppc.npc = ppc.pc;
++        --ppc.downcount;
++        ++m_native_dispatches;
++        continue;
++      }
++    }
++
++    // SetupGCMemory installs one RFI at the initial syscall vector. The
++    // apploader uses it to synchronize cache operations before OSInit.
++    if ((ppc.pc == 0xc00u || ppc.pc == 0x80000c00u) &&
++        memory.Read_U32(ppc.pc) == 0x4c000064u)
++    {
++      SyncIn();
++      if (m_guest.msr & PPC_MSR_PR)
++      {
++        ppc_program_exception(&m_guest, PPC_PROGRAM_PRIV, ppc.pc);
++      }
++      else
++      {
++        m_guest.msr = (m_guest.msr & ~PPC_MSR_RFI_MASK) |
++                      (m_guest.srr1 & PPC_MSR_RFI_MASK);
++        m_guest.msr &= ~PPC_MSR_POW;
++        m_guest.pc = m_guest.srr0 & ~3u;
++      }
++      m_guest.downcount = -2;
++      SyncOut();
++      ++m_native_dispatches;
++      m_charged_cycles += 2;
++      continue;
++    }
++
++    if (!DispatchableAt(ppc.pc))
++      Melee::RejectCPUFallback("uncovered native boot address", ppc.pc);
++    const u32 address = ppc.pc;
++    SyncIn();
++    if (!m_module->dispatch(&m_guest, address))
++      Melee::RejectCPUFallback("native boot dispatch failed", address);
++    if (m_guest.pc == address && m_guest.downcount == 0)
++      Melee::RejectCPUFallback("native boot dispatch made no progress", address);
++    ++m_native_dispatches;
++    if (m_guest.downcount < 0)
++      m_charged_cycles += static_cast<u64>(-m_guest.downcount);
++    if (m_guest.exception)
++      ++m_native_exceptions;
++    SyncOut();
++    if ((ppc.Exceptions & SYNC_EXCEPTION_MASK) != 0)
++      power_pc.CheckExceptions();
++  }
++
++  std::fprintf(stderr, "[staticrecomp] native boot call 0x%08X: %llu dispatches\n",
++               entry, static_cast<unsigned long long>(m_native_dispatches - dispatches_before));
++}
++
+ void StaticRecompCore::Run()
+ {
+   auto& core_timing = m_system.GetCoreTiming();

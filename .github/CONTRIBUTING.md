@@ -1,9 +1,11 @@
-# Contribution rules for the automated fork
+# Working on Melee for Mac
 
-This is Theo's fully automated cleanup fork. AI agents make, review, test, and
-land changes here. Do not assume that each change has human review.
+This is Theo's fully automated slop experiment. It is not meant for serious use
+or investigation. No support, maintenance, or human review is promised.
+Please do not volunteer time to investigate, audit, maintain, or upstream it.
 
-Submit work only to [t3dotgg/melee](https://github.com/t3dotgg/melee).
+These instructions apply when Theo explicitly requests a change. Keep that
+work in [t3dotgg/melee4mac](https://github.com/t3dotgg/melee4mac).
 Do not open pull requests, issues, or automated reviews on the official
 `doldecomp/melee` repository for work from this fork.
 
@@ -298,8 +300,8 @@ Enum typedefs in this project always resolve to `int` currently.  This is a quir
 
 # <a name="prs"></a>Pull Requests
 
-- Rebase onto the latest `master` from `t3dotgg/melee` before opening a pull request.
-- Use `gh pr create --repo t3dotgg/melee --base master` to set the target explicitly.
+- Rebase onto the latest `master` from `t3dotgg/melee4mac` before opening a pull request.
+- Use `gh pr create --repo t3dotgg/melee4mac --base master` to set the target explicitly.
 - Open a real pull request within this fork when a review record is useful.
 - State the problem, the change, and the actual checks run. Name the public model and harness that made the change. If the model is unknown, name only the harness.
 - Check the target repository before every push or GitHub write.
@@ -319,9 +321,10 @@ GitHub uploads. Use ignored `orig/` and `build/` paths for local files.
 
 # <a name="ai"></a>AI Assistance
 
-Automated implementation and review are the purpose of this fork. Label the work
-clearly and do not present an agent's review as human review. Use independent
-review for changes whose meaning needs source or SDK evidence.
+When Theo requests a change, agents can implement it and run targeted checks.
+Keep the slop notice in the change record. Do not present an agent's review as
+human review or imply that this fork has support or maintenance commitments.
+Use independent review when requested work needs source or SDK evidence.
 
 Prefer local names and private helpers before changing shared interfaces.
 Preserve known original names and struct layouts. A matching executable proves

@@ -1,5 +1,9 @@
 # Code map
 
+These are reference notes for Melee for Mac, Theo's automated slop experiment.
+It is not meant for serious use or investigation. Use these notes only for work
+Theo explicitly requests. No support, maintenance, or human review is promised.
+
 Start with the behavior you want to understand. Most game code is under
 `src/melee`. HAL's object and graphics library is under
 `src/sysdolphin/baselib`. The GameCube SDK is in `extern/dolphin`, with headers

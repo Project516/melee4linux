@@ -7,7 +7,7 @@
 #   python3 tools/download_tool.py wibo build/tools/wibo --tag 1.0.0
 #
 # Based on https://github.com/encounter/dtk-template.
-# Changes for this automated fork stay in t3dotgg/melee.
+# Changes for this automated fork stay in t3dotgg/melee4mac.
 ###
 
 import argparse

@@ -1,25 +1,19 @@
 @page getting_started Getting started
 
-# Start with a matching build
+# Melee for Mac
 
-This is Theo's fully automated cleanup fork of Melee. AI agents make and review
-its changes. Work from this fork stays in
-[t3dotgg/melee](https://github.com/t3dotgg/melee). Read the
-[contribution rules](../.github/CONTRIBUTING.md) before making changes.
+This is Theo's fully automated slop experiment. It is not meant for serious use
+or investigation. No support, maintenance, or human review is promised. Please
+do not spend time investigating or maintaining it, or send its issues upstream.
 
-The US v1.02 source is fully matching at the fork's starting revision. The next
-work is to improve names, types, structure, documentation, and developer tools
-while keeping the original executable unchanged.
+To try the app with your own game data, use the [Melee for Mac guide](native-macos.md).
+The repository is [t3dotgg/melee4mac](https://github.com/t3dotgg/melee4mac).
+The sections below are technical references for work Theo explicitly requests,
+not a request for community investigation or contributions.
 
-1. Follow the [build and run guide](build-and-run.md). You need your own US v1.02
-   game image.
-2. Run `python tools/verify.py` before editing. It checks source completion,
-   object differences, and the complete executable hash.
-3. Use the [code map](code-map.md) to find a small module and its callers.
-4. Make one change that has a clear reason, then verify it again.
-
-The output is a GameCube executable. Run it in Dolphin with the extracted disc
-files. A matching build is not a native Mac or PC application.
+When Theo requests code changes, read the [contribution rules](../.github/CONTRIBUTING.md).
+Start with the [matching build guide](build-and-run.md) and verify the original
+executable before editing it. Use the [code map](code-map.md) for source locations.
 
 # What matching means
 
@@ -51,7 +45,7 @@ Changing a cast, a local variable's position, or an inline helper can change
 those choices. This project uses an old compiler to reproduce its original
 choices. Some unusual code exists only because a simpler form did not match.
 
-# Choose useful cleanup
+# When Theo requests cleanup
 
 Read a function and its callers before changing it. Find the types in the
 module's `types.h`, `forward.h`, and headers. Use the symbol list when a name
@@ -102,7 +96,7 @@ Public CI runs source style checks, tool tests, and a native static library
 build. It has no original game data. Record the local full-build verification
 when submitting code to this fork.
 
-# Learn from assembly
+# Assembly references
 
 You can still use [decomp.me](https://decomp.me) to study or experiment with one
 function. Choose the GameCube / Wii platform and the Super Smash Bros. Melee
@@ -120,5 +114,5 @@ missing-header errors, and the limits of textual include expansion. The
 The [PowerPC instruction reference](https://math-atlas.sourceforge.net/devel/assembly/ppc_isa.pdf)
 helps explain the instructions. The GameCube uses a 32-bit PowerPC processor.
 
-This is a way to understand existing code. There is no need to find an unmatched
-function before contributing useful cleanup.
+These references support requested work. They are not a call to investigate
+or maintain this experiment.
