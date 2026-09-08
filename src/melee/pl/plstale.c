@@ -17,81 +17,84 @@ void plStale_InitAttackInstance(void)
 
 void plStale_ResetStaleMoveTableForPlayer(s32 slot)
 {
-    int i;
+    int entry_index;
     StaleMoveTable* stale_table = Player_GetStaleMoveTableIndexPtr(slot);
     stale_table->current_index = 0;
-    for (i = 0; i < 10; i++) {
-        stale_table->StaleMoves[i].move_id = 0;
-        stale_table->StaleMoves[i].attack_instance = 0;
+    for (entry_index = 0; entry_index < 10; entry_index++) {
+        stale_table->StaleMoves[entry_index].move_id = 0;
+        stale_table->StaleMoves[entry_index].attack_instance = 0;
     }
 }
 
 u16 plStale_IncrementAttackInstance(void)
 {
-    u16 before = staleAttackInstance;
+    u16 attack_instance = staleAttackInstance;
     staleAttackInstance += 1;
+    // Keep zero reserved for cleared queue entries.
     if (staleAttackInstance == 0) {
         staleAttackInstance = 1;
     }
-    return before;
+    return attack_instance;
 }
 
-void plStale_UpdateStaleMovesFromFighter(HSD_GObj* gobj, HSD_GObj* gobj_2)
+static inline void recordStaleMove(StaleMoveTable* stale_table, s32 attack_id,
+                                   u16 attack_instance)
 {
-    int i;
-    s32 attack_id;
-    u16 instance;
-    StaleMoveTable* smtp;
+    int entry_index;
 
-    if (gobj != gobj_2) {
-        Fighter* ft = GET_FIGHTER(gobj);
-
-        instance = ft->x206C_attack_instance;
-        attack_id = ft->x2068_attackID;
-        smtp = Player_GetStaleMoveTableIndexPtr(ft->player_id);
-        if (attack_id != 1) {
-            for (i = 0; i < 10; i++) {
-                if (attack_id == smtp->StaleMoves[i].move_id &&
-                    instance == smtp->StaleMoves[i].attack_instance)
-                {
-                    return;
-                }
+    if (attack_id != 1) {
+        // Do not enqueue the same attack again while it is in the queue.
+        for (entry_index = 0; entry_index < 10; entry_index++) {
+            if (attack_id == stale_table->StaleMoves[entry_index].move_id &&
+                attack_instance ==
+                    stale_table->StaleMoves[entry_index].attack_instance)
+            {
+                return;
             }
-            smtp->StaleMoves[smtp->current_index].move_id = attack_id;
-            smtp->StaleMoves[smtp->current_index].attack_instance = instance;
-            smtp->current_index =
-                smtp->current_index == 9 ? 0 : smtp->current_index + 1;
         }
+        stale_table->StaleMoves[stale_table->current_index].move_id =
+            attack_id;
+        stale_table->StaleMoves[stale_table->current_index].attack_instance =
+            attack_instance;
+        stale_table->current_index = stale_table->current_index == 9
+                                         ? 0
+                                         : stale_table->current_index + 1;
     }
 }
 
-void plStale_UpdateStaleMovesFromItem(HSD_GObj* gobj, HSD_GObj* gobj_2)
+void plStale_UpdateStaleMovesFromFighter(HSD_GObj* attacker_gobj,
+                                         HSD_GObj* victim_gobj)
 {
-    int i;
     s32 attack_id;
-    u16 instance;
-    StaleMoveTable* smtp;
-    HSD_GObj* owner;
-    Item* it;
+    u16 attack_instance;
+    StaleMoveTable* stale_table;
 
-    it = GET_ITEM(gobj);
-    owner = it->owner;
-    if (ftLib_80086960(owner) && owner != gobj_2) {
-        instance = it->xD8C_attack_instance;
-        attack_id = it->xD88_attackID;
-        smtp = Player_GetStaleMoveTableIndexPtr(GET_FIGHTER(owner)->player_id);
-        if (attack_id != 1) {
-            for (i = 0; i < 10; i++) {
-                if (attack_id == smtp->StaleMoves[i].move_id &&
-                    instance == smtp->StaleMoves[i].attack_instance)
-                {
-                    return;
-                }
-            }
-            smtp->StaleMoves[smtp->current_index].move_id = attack_id;
-            smtp->StaleMoves[smtp->current_index].attack_instance = instance;
-            smtp->current_index =
-                smtp->current_index == 9 ? 0 : smtp->current_index + 1;
-        }
+    if (attacker_gobj != victim_gobj) {
+        Fighter* attacker = GET_FIGHTER(attacker_gobj);
+
+        attack_instance = attacker->x206C_attack_instance;
+        attack_id = attacker->x2068_attackID;
+        stale_table = Player_GetStaleMoveTableIndexPtr(attacker->player_id);
+        recordStaleMove(stale_table, attack_id, attack_instance);
+    }
+}
+
+void plStale_UpdateStaleMovesFromItem(HSD_GObj* item_gobj,
+                                      HSD_GObj* victim_gobj)
+{
+    s32 attack_id;
+    u16 attack_instance;
+    StaleMoveTable* stale_table;
+    HSD_GObj* owner;
+    Item* item;
+
+    item = GET_ITEM(item_gobj);
+    owner = item->owner;
+    if (ftLib_80086960(owner) && owner != victim_gobj) {
+        attack_instance = item->xD8C_attack_instance;
+        attack_id = item->xD88_attackID;
+        stale_table =
+            Player_GetStaleMoveTableIndexPtr(GET_FIGHTER(owner)->player_id);
+        recordStaleMove(stale_table, attack_id, attack_instance);
     }
 }
