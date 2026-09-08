@@ -128,6 +128,16 @@ Strong symbol definitions take priority over weak definitions. If a symbol
 has only weak definitions, the report lists all possible providers. The
 linker decides which definition the executable uses.
 
+Use `python tools/dep_graph.py --matching --limit 20` to find units with no
+incoming references from other Matching or NonMatching units. Without
+`--matching`, the leaf analysis considers only NonMatching units and their
+references. The current complete build therefore has no default candidates.
+
+For an incomplete build, `--chain` reports which single conversion would make
+other NonMatching units into leaves. If A refers to B, converting A can make
+B a leaf. B remains blocked if another NonMatching unit also refers to it.
+This reports the immediate effect of one conversion, not a build guarantee.
+
 These are dependencies between object files, not a call graph. A reference
 can be a function call, a data access, or a callback-table entry. The output
 does not tell you when a callback runs. Read its registration and dispatcher.
