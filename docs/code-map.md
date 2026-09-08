@@ -105,6 +105,44 @@ the original object boundaries. [`configure.py`](../configure.py) selects
 source files, compiler settings, and which objects are linked. Use these
 files when a source file's role in the build is unclear.
 
+## Inspect object dependencies and symbol changes
+
+After a build, use the dependency tool to find which source units supply a
+unit's external symbols, or which units refer to it:
+
+```sh
+ninja all_source
+python tools/dep_graph.py --deps melee/pl/plstale.c
+python tools/dep_graph.py --rdeps melee/pl/player.c
+```
+
+Pass paths relative to `src`, without the `src/` prefix. The tool uses the
+GALE01 unit list in `build/GALE01/config.json` and the compiled source objects.
+It prefers the project's PowerPC `nm`. Missing objects and failed symbol
+reads stop the report, so build all source objects first.
+
+These are dependencies between object files, not a call graph. A reference
+can be a function call, a data access, or a callback-table entry. The output
+does not tell you when a callback runs. Read its registration and dispatcher.
+
+To compare names at the same addresses across two saved maps:
+
+```sh
+python tools/diff_symbols.py --text old-symbols.txt config/GALE01/symbols.txt
+python tools/diff_symbols.py --text --units old-splits.txt config/GALE01/splits.txt
+python tools/diff_symbols.py --units old-report.json build/GALE01/report.json
+```
+
+The `old-*` paths are saved copies from the revision you want to compare.
+The tool prints `old_name:new_name` for changed names at shared addresses.
+Unit comparisons use each unit's `.text` start address. Units without a
+`.text` range do not appear. Symbol comparisons skip labels marked
+`type:label` and retain the first name when several symbols share an address.
+
+For JSON reports, `--percent lt` lists decreases in fuzzy match percentage.
+It also accepts `eq`, `ne`, and `gt`. Use these reports to locate changes.
+Use the full executable verification to accept a cleanup.
+
 ## Separate source behavior from disc data
 
 C code controls game rules, callbacks, state transitions, and asset loading.
