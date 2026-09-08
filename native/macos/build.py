@@ -10,6 +10,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -27,6 +28,31 @@ def run(*args, cwd=ROOT, env=None):
 def digest(path):
     with path.open("rb") as source:
         return hashlib.file_digest(source, "sha1").hexdigest()
+
+
+def source_digest(path):
+    with path.open("rb") as source:
+        return hashlib.file_digest(source, "sha256").hexdigest()
+
+
+def check_source_image(runtime, iso):
+    """Require the requested image to match an existing import before reusing it."""
+    checksum = source_digest(iso)
+    stamp = runtime / "private/source-image.sha256"
+    if stamp.exists():
+        if stamp.read_text().strip() != checksum:
+            raise RuntimeError("This runtime cache uses a different disc image. Use a new --runtime-dir.")
+        return checksum
+    cached_image = runtime / "private/GALE01r2.iso"
+    if cached_image.exists():
+        # Adopt an older cache only after comparing the complete normalized image.
+        # prepare_disc also supports a CISO with an .iso extension.
+        with tempfile.TemporaryDirectory(dir=cached_image.parent, prefix="source-check-") as directory:
+            expanded = Path(directory) / "disc.iso"
+            run(sys.executable, runtime / "scripts/prepare_disc.py", iso, expanded, cwd=runtime)
+            if source_digest(expanded) != source_digest(cached_image):
+                raise RuntimeError("The imported disc differs from --iso. Use a new --runtime-dir.")
+    return checksum
 
 
 def patch_state(checkout, patch, reverse=False):
@@ -51,8 +77,8 @@ def remove_patch(checkout, patch):
         return
     if patch_state(checkout, patch, reverse=True):
         run("git", "apply", "--reverse", patch, cwd=checkout)
-    elif not patch_state(checkout, patch):
-        raise RuntimeError(f"Cannot safely refresh {patch.name} in {checkout}")
+    # An interrupted first build can have none of the preceding patches.
+    # Check forward application later, after their required context is restored.
 
 
 def main():
@@ -89,10 +115,12 @@ def main():
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=runtime, text=True).strip()
     if revision != RUNTIME_REV:
         raise RuntimeError(f"Runtime must be pinned to {RUNTIME_REV}, found {revision}.")
+    image_checksum = check_source_image(runtime, iso)
     dolphin = runtime / "upstream/ModernGekko-Template/lib/ModernGekko/vendor/dolphin"
     patches = [
         (runtime, HERE / "patches/apple-input.patch"),
         (runtime, HERE / "patches/app-bundle.patch"),
+        (runtime / "upstream/ModernGekko-Template/lib/ModernGekko", HERE / "patches/runtime-sdl.patch"),
         (dolphin, HERE / "patches/strict-cpu.patch"),
         (dolphin, HERE / "patches/native-boot.patch"),
     ]
@@ -107,6 +135,7 @@ def main():
     env["MELEE_BOOT_BUILDER"] = str(HERE / "recompile_boot.py")
     env["PATH"] = str(Path(sys.executable).parent) + os.pathsep + env["PATH"]
     run("bash", runtime / "scripts/build_macos.sh", iso, cwd=runtime, env=env)
+    (runtime / "private/source-image.sha256").write_text(image_checksum + "\n")
     if digest(runtime / "private/GALE01r2/sys/main.dol") != digest(dol):
         raise RuntimeError("The native build used a different executable.")
     for checkout, patch in patches:

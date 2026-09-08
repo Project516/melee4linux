@@ -12,7 +12,7 @@
  import hashlib
  from pathlib import Path
  p=Path('private/GALE01r2/sys/main.dol')
-@@ -75,11 +80,18 @@
+@@ -75,11 +80,28 @@
    -DMODERNGEKKO_GAMECUBE_CONTROLLERS=ON \
    -DMODERNGEKKO_DEFAULT_WINDOW_TITLE='Melee — macOS Recompilation'
  cmake --build build/runtime --target moderngekko-run -j "$JOBS"
@@ -23,6 +23,16 @@
 +    --output private/native-boot.dol
 +  COMPILATION_DOL=private/native-boot.dol
 +fi
++# DolRecomp does not remove stale chunks when section boundaries change.
++python3 - <<'PY_CLEAN'
++from pathlib import Path
++import shutil
++scratch = Path('private/recompiled-next')
++if scratch.is_symlink():
++    raise SystemExit('Refusing a symbolic link for generated scratch output')
++if scratch.exists():
++    shutil.rmtree(scratch)
++PY_CLEAN
  build/dolrecomp/dolrecomp -j"$JOBS" --cpu gekko --gamecube \
 -  private/GALE01r2/sys/main.dol private/recompiled-next
 +  "$COMPILATION_DOL" private/recompiled-next
