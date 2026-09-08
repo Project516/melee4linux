@@ -243,7 +243,8 @@ config.compilers_tag = "20251118"
 config.dtk_tag = "v1.8.3"
 config.objdiff_tag = "v3.6.1"
 config.sjiswrap_tag = "v1.2.2"
-config.wibo_tag = "0.7.0"
+# WiBo 1.1.0 runs sjiswrap on macOS. The 1.2.0 Mac release fails that step.
+config.wibo_tag = "1.1.0" if sys.platform == "darwin" else "0.7.0"
 
 # Project
 config.config_path = Path("config") / config.version / "config.yml"

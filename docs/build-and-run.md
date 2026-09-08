@@ -58,32 +58,25 @@ Apple's installer and follow its license prompt:
 softwareupdate --install-rosetta
 ```
 
-Download the tested wrapper:
+On Intel and Apple Silicon Macs, Ninja downloads WiBo 1.1.0 to
+`build/tools/wibo` during the first build. No manual wrapper download is needed.
+Version 1.2.0 failed in the project's Shift JIS wrapper with
+`GetProcAddressFail` during the Mac test, so the Mac build uses 1.1.0.
 
-```sh
-mkdir -p build/tools/wibo-1.1.0
-curl -fL https://github.com/decompals/wibo/releases/download/1.1.0/wibo-macos \
-  -o build/tools/wibo-1.1.0/wibo-macos
-chmod +x build/tools/wibo-1.1.0/wibo-macos
-```
-
-Use version 1.1.0 for these instructions. Version 1.2.0 failed in the
-project's Shift JIS wrapper with `GetProcAddressFail` during the Mac test.
-This is a tool failure, not evidence that the C source fails to compile.
+If you need a different wrapper, pass `--wrapper /path/to/wibo-or-wine` to
+`configure.py`. An explicit wrapper disables the automatic WiBo download.
 
 ## Build and verify the original game
 
 ```sh
-python configure.py \
-  --wrapper build/tools/wibo-1.1.0/wibo-macos \
-  --map --no-always-apply
+python configure.py --map --no-always-apply
 python tools/verify.py
 ```
 
 The verification command builds the executable and progress report, checks
 the object differences, checks source completion, and checks the final
-executable hash. It uses the existing configuration. Its `--version` option selects the game version,
-and `--ninja` selects a Ninja executable. See
+executable hash. It uses the existing configuration. Its `--version` option
+selects the game version, and `--ninja` selects a Ninja executable. See
 [`tools/verify.py`](../tools/verify.py) for its options.
 
 To run the build and hash checks manually:
@@ -164,9 +157,7 @@ instructions before changing compiler flags or removing matching controls.
 For a gameplay experiment, configure a non-matching build:
 
 ```sh
-python configure.py \
-  --wrapper build/tools/wibo-1.1.0/wibo-macos \
-  --map --no-always-apply --non-matching
+python configure.py --map --no-always-apply --non-matching
 ninja build/GALE01/main.dol
 ```
 
