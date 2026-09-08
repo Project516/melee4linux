@@ -2,6 +2,8 @@
 
 #include <Runtime/platform.h>
 
+#include <placeholder.h>
+
 #include "types.h"
 #include <dolphin/mtx.h>
 #include <sysdolphin/baselib/cobj.h>

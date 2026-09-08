@@ -18,9 +18,15 @@ typedef struct _HSD_IDTable {
 HSD_ObjAllocData* HSD_IDGetAllocData(void);
 void HSD_IDInitAllocData(void);
 void HSD_IDSetup(void);
+/// A NULL table selects the default table for insertion, removal, and lookup.
+/// Replaces the data for an existing ID without freeing the previous data.
 void HSD_IDInsertToTable(HSD_IDTable* table, u32 id, void* data);
+/// Removes and frees the entry. The caller still owns its data.
 void HSD_IDRemoveByIDFromTable(HSD_IDTable* table, u32 id);
+/// Sets *success to 1 for a found ID, even when its data is NULL, or 0 if
+/// absent. The success output is optional.
 void* HSD_IDGetDataFromTable(HSD_IDTable* table, u32 id, s32* success);
+/// Clears the entire default table without freeing entries. Ignores the range.
 void _HSD_IDForgetMemory(void* low, void* high);
 
 static inline void* HSD_IDGetData(u32 id, s32* success)

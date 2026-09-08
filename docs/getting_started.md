@@ -108,8 +108,15 @@ You can still use [decomp.me](https://decomp.me) to study or experiment with one
 function. Choose the GameCube / Wii platform and the Super Smash Bros. Melee
 preset. Use the target function's assembly and the types it needs.
 
-The [context generator](../tools/m2ctx/README.md) collects C declarations for
-such experiments. Run `python tools/m2ctx/m2ctx.py -h` for its options.
+The build includes context targets that use the configured include paths:
+
+```sh
+ninja build/GALE01/src/melee/lb/lbcommand.ctx
+```
+
+The [context guide](code/context-generation.md) explains the generated file,
+missing-header errors, and the limits of textual include expansion. The
+[m2ctx tool](../tools/m2ctx/README.md) is another option for context generation.
 The [PowerPC instruction reference](https://math-atlas.sourceforge.net/devel/assembly/ppc_isa.pdf)
 helps explain the instructions. The GameCube uses a 32-bit PowerPC processor.
 

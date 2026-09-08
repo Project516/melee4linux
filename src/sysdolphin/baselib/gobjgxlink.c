@@ -7,20 +7,17 @@
 #pragma push
 #pragma dont_inline on
 #endif
-void GObj_GXReorder(HSD_GObj* gobj, HSD_GObj* hiprio_gobj)
+void GObj_GXReorder(HSD_GObj* gobj, HSD_GObj* prev_gobj)
 {
-    u32 link = gobj->gx_link;
+    u32 gx_link = gobj->gx_link;
 
-    gobj->prev_gx = hiprio_gobj;
-    if (hiprio_gobj != NULL) {
-        // If there is a higher priority GObj, make gobj the next in GX order
-        gobj->next_gx = hiprio_gobj->next_gx;
-        hiprio_gobj->next_gx = gobj;
+    gobj->prev_gx = prev_gobj;
+    if (prev_gobj != NULL) {
+        gobj->next_gx = prev_gobj->next_gx;
+        prev_gobj->next_gx = gobj;
     } else {
-        // If there's not a higher priority GObj of this type, this gobj
-        // becomes the highest priority
-        gobj->next_gx = HSD_GObjGXLinkHead[link];
-        HSD_GObjGXLinkHead[link] = gobj;
+        gobj->next_gx = HSD_GObjGXLinkHead[gx_link];
+        HSD_GObjGXLinkHead[gx_link] = gobj;
     }
 
     if (gobj->next_gx != NULL) {
@@ -36,69 +33,69 @@ void GObj_GXReorder(HSD_GObj* gobj, HSD_GObj* hiprio_gobj)
 void GObj_SetupGXLink(HSD_GObj* gobj, GObj_RenderFunc render_cb, u8 gx_link,
                       u32 priority)
 {
-    HSD_GObj* i;
-    HSD_GObj* prev;
+    HSD_GObj* cursor;
+    HSD_GObj* prev_gobj;
 
     HSD_ASSERT(167, gx_link <= HSD_GObjLibInitData.gx_link_max);
     gobj->render_cb = render_cb;
     gobj->gx_link = gx_link;
     gobj->render_priority = priority;
 
-    for (i = HSD_GObj_804D7820[gobj->gx_link];
-         i != NULL && (i->render_priority > gobj->render_priority); i = prev)
+    /* Search from the tail to insert after existing equal priorities. */
+    for (cursor = HSD_GObj_804D7820[gobj->gx_link];
+         cursor != NULL && cursor->render_priority > gobj->render_priority;
+         cursor = prev_gobj)
     {
-        prev = i->prev_gx;
+        prev_gobj = cursor->prev_gx;
     }
-    GObj_GXReorder(gobj, i);
+    GObj_GXReorder(gobj, cursor);
 }
 
 void GObj_SetupGXLinkMax(HSD_GObj* gobj, GObj_RenderFunc render_cb,
                          u32 priority)
 {
-    HSD_GObj* i;
+    HSD_GObj* cursor;
     u8 max_link = HSD_GObjLibInitData.gx_link_max;
 
     gobj->render_cb = render_cb;
     gobj->gx_link = max_link + 1;
     gobj->render_priority = priority;
 
-    i = HSD_GObj_804D7820[gobj->gx_link];
-    while (i != NULL && i->render_priority > gobj->render_priority) {
-        i = i->prev_gx;
+    cursor = HSD_GObj_804D7820[gobj->gx_link];
+    while (cursor != NULL && cursor->render_priority > gobj->render_priority) {
+        cursor = cursor->prev_gx;
     }
-    GObj_GXReorder(gobj, i);
+    GObj_GXReorder(gobj, cursor);
 }
 
-static inline HSD_GObj* GObj_GXFindPrioPosition(HSD_GObj* gobj)
+/* Find the first object at or after this priority, including equal values. */
+static inline HSD_GObj* findFirstAtOrAbovePriority(HSD_GObj* gobj)
 {
-    HSD_GObj* i;
-
-    i = HSD_GObjGXLinkHead[gobj->gx_link];
-    while (i != NULL && i->render_priority < gobj->render_priority) {
-        i = i->next_gx;
+    HSD_GObj* cursor = HSD_GObjGXLinkHead[gobj->gx_link];
+    while (cursor != NULL && cursor->render_priority < gobj->render_priority) {
+        cursor = cursor->next_gx;
     }
-
-    return i;
+    return cursor;
 }
 
 void GObj_SetupGXLinkMaxSorted(HSD_GObj* gobj, GObj_RenderFunc render_cb,
                                u32 priority)
 {
-    HSD_GObj* i;
+    HSD_GObj* cursor;
     u8 max_link = HSD_GObjLibInitData.gx_link_max;
 
     gobj->render_cb = render_cb;
     gobj->gx_link = max_link + 1;
     gobj->render_priority = priority;
 
-    i = GObj_GXFindPrioPosition(gobj);
+    cursor = findFirstAtOrAbovePriority(gobj);
 
-    if (i != NULL) {
-        i = i->prev_gx;
+    if (cursor != NULL) {
+        cursor = cursor->prev_gx;
     } else {
-        i = HSD_GObj_804D7820[gobj->gx_link];
+        cursor = HSD_GObj_804D7820[gobj->gx_link];
     }
-    GObj_GXReorder(gobj, i);
+    GObj_GXReorder(gobj, cursor);
 }
 
 void HSD_GObjGXLink_8039084C(HSD_GObj* gobj)
@@ -126,38 +123,29 @@ void HSD_GObjGXLink_8039084C(HSD_GObj* gobj)
     gobj->next_gx = NULL;
 }
 
-static inline HSD_GObj* get_by_prio(HSD_GObj* gobj)
-{
-    HSD_GObj* cur = HSD_GObjGXLinkHead[gobj->gx_link];
-    while (cur != NULL && cur->render_priority < gobj->render_priority) {
-        cur = cur->next_gx;
-    }
-    return cur;
-}
-
 void HSD_GObjGXLink_80390908(HSD_GObj* gobj, u8 gx_link, u8 priority)
 {
-    HSD_GObj* cur;
+    HSD_GObj* cursor;
     HSD_ASSERT(535, gx_link <= HSD_GObjLibInitData.gx_link_max);
     HSD_GObjGXLink_8039084C(gobj);
     gobj->gx_link = gx_link;
     gobj->render_priority = priority;
-    cur = get_by_prio(gobj);
-    GObj_GXReorder(gobj, cur != NULL ? cur->prev_gx
-                                     : HSD_GObj_804D7820[gobj->gx_link]);
+    cursor = findFirstAtOrAbovePriority(gobj);
+    GObj_GXReorder(gobj, cursor != NULL ? cursor->prev_gx
+                                        : HSD_GObj_804D7820[gobj->gx_link]);
 }
 
-void HSD_GObjGXLink_803909D8(HSD_GObj* gobj, HSD_GObj* other)
+void HSD_GObjGXLink_803909D8(HSD_GObj* gobj, HSD_GObj* next_gobj)
 {
     u8 _[12];
 
-    u8 link;
-    u8 prio;
+    u8 gx_link;
+    u8 priority;
 
-    prio = other->render_priority;
-    link = other->gx_link;
+    priority = next_gobj->render_priority;
+    gx_link = next_gobj->gx_link;
     HSD_GObjGXLink_8039084C(gobj);
-    gobj->gx_link = link;
-    gobj->render_priority = prio;
-    GObj_GXReorder(gobj, other->prev_gx);
+    gobj->gx_link = gx_link;
+    gobj->render_priority = priority;
+    GObj_GXReorder(gobj, next_gobj->prev_gx);
 }
