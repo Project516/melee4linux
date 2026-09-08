@@ -3,10 +3,55 @@
 
 import argparse
 import hashlib
+import json
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+
+def verify_report(report: Path) -> None:
+    data = json.loads(report.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or not isinstance(data.get("measures"), dict):
+        raise ValueError(f"{report} must contain source build measures.")
+    measures = data["measures"]
+
+    def count(key: str) -> int:
+        value = measures.get(key)
+        # objdiff stores byte counts as decimal strings and other counts as ints.
+        if type(value) is int and value >= 0:
+            return value
+        if isinstance(value, str) and re.fullmatch(r"[0-9]+", value):
+            return int(value)
+        raise ValueError(f"{report}: {key} must be a nonnegative integer.")
+
+    # The linker can use original objects for incomplete source units. The DOL
+    # hash alone cannot prove that every source unit matches and is linked.
+    for category, checks in (
+        ("code", ("matched", "complete")),
+        ("data", ("matched", "complete")),
+        ("functions", ("matched",)),
+        ("units", ("complete",)),
+    ):
+        total = count(f"total_{category}")
+        if total == 0:
+            raise ValueError(f"{report}: total_{category} must be greater than zero.")
+        for check in checks:
+            key = f"{check}_{category}"
+            actual = count(key)
+            if actual != total:
+                raise ValueError(f"{report}: {key} is {actual}, expected {total}.")
+
+    units = data.get("units")
+    if not isinstance(units, list) or len(units) != count("total_units"):
+        raise ValueError(f"{report}: unit list must match total_units.")
+    for unit in units:
+        if (
+            not isinstance(unit, dict)
+            or not isinstance(unit.get("metadata"), dict)
+            or unit["metadata"].get("complete") is not True
+        ):
+            raise ValueError(f"{report}: every source unit must be complete.")
 
 
 def verify(root: Path, version: str, ninja: str) -> None:
@@ -39,13 +84,14 @@ def verify(root: Path, version: str, ninja: str) -> None:
         if not (root / artifact).is_file():
             raise ValueError(f"Required build artifact is missing: {artifact}")
 
+    verify_report(root / report)
     actual = hashlib.sha1((root / dol).read_bytes()).hexdigest()
     if actual != expected:
         raise ValueError(
             f"SHA-1 mismatch for {dol}\nExpected: {expected}\nActual:   {actual}"
         )
     print(f"Verified {dol}: SHA-1 {actual}")
-    print(f"Ninja diff passed. Build report: {report}")
+    print(f"All source units are complete and match. Ninja diff passed: {report}")
 
 
 def main() -> int:

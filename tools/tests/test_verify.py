@@ -2,6 +2,7 @@
 
 import hashlib
 import io
+import json
 import subprocess
 import tempfile
 import unittest
@@ -22,7 +23,24 @@ class VerifyTests(unittest.TestCase):
         self.dol.parent.mkdir(parents=True)
         self.manifest.parent.mkdir(parents=True)
         self.dol.write_bytes(b"original game executable")
-        self.report.write_text('{"measures": {"fuzzy_match_percent": 100}}')
+        self.measures = {
+            "fuzzy_match_percent": 99.999954,
+            "total_code": "32",
+            "matched_code": "32",
+            "complete_code": "32",
+            "total_data": "16",
+            "matched_data": "16",
+            "complete_data": "16",
+            "total_functions": 2,
+            "matched_functions": 2,
+            "total_units": 1,
+            "complete_units": 1,
+        }
+        self.report_data = {
+            "measures": self.measures,
+            "units": [{"metadata": {"complete": True}}],
+        }
+        self.report.write_text(json.dumps(self.report_data))
         self.expected = hashlib.sha1(self.dol.read_bytes()).hexdigest()
         self.manifest.write_text(f"{self.expected}  build/GALE01/main.dol")
         (self.root / "build.ninja").touch()
@@ -68,11 +86,71 @@ class VerifyTests(unittest.TestCase):
 
     def test_perfect_progress_does_not_hide_hash_mismatch(self):
         self.dol.write_bytes(b"different executable")
+        self.measures["fuzzy_match_percent"] = 100
+        self.report.write_text(json.dumps(self.report_data))
 
         with self.assertRaisesRegex(ValueError, "SHA-1 mismatch"):
             verify(self.root, "GALE01", "ninja")
 
         self.assertEqual(self.stdout.getvalue(), "")
+
+    def test_original_object_fallback_does_not_hide_incomplete_source(self):
+        for key in ("complete_code", "complete_data", "complete_units"):
+            with self.subTest(key=key):
+                original = self.measures[key]
+                self.measures[key] = 0
+                self.report.write_text(json.dumps(self.report_data))
+                with self.assertRaisesRegex(ValueError, key):
+                    verify(self.root, "GALE01", "ninja")
+                self.measures[key] = original
+
+        self.assertEqual(self.stdout.getvalue(), "")
+
+    def test_matching_executable_does_not_hide_source_mismatch(self):
+        for key in ("matched_code", "matched_data", "matched_functions"):
+            with self.subTest(key=key):
+                original = self.measures[key]
+                self.measures[key] = int(original) - 1
+                self.report.write_text(json.dumps(self.report_data))
+                with self.assertRaisesRegex(ValueError, key):
+                    verify(self.root, "GALE01", "ninja")
+                self.measures[key] = original
+
+        self.assertEqual(self.stdout.getvalue(), "")
+
+    def test_invalid_report_fails_with_matching_executable(self):
+        for content in ("", "{", "null", "[]", "{}", '{"measures": {}}'):
+            with self.subTest(content=content):
+                self.report.write_text(content)
+                with self.assertRaises(ValueError):
+                    verify(self.root, "GALE01", "ninja")
+
+        self.assertEqual(self.stdout.getvalue(), "")
+
+    def test_invalid_counts_are_not_coerced_to_valid_totals(self):
+        for invalid in (True, -1, 1.5, "1.5", "", None):
+            with self.subTest(invalid=invalid):
+                self.measures["complete_units"] = invalid
+                self.report.write_text(json.dumps(self.report_data))
+                with self.assertRaisesRegex(ValueError, "nonnegative integer"):
+                    verify(self.root, "GALE01", "ninja")
+
+    def test_empty_totals_do_not_pass(self):
+        for key in self.measures:
+            self.measures[key] = 0
+        self.report_data["units"] = []
+        self.report.write_text(json.dumps(self.report_data))
+
+        with self.assertRaisesRegex(ValueError, "greater than zero"):
+            verify(self.root, "GALE01", "ninja")
+
+    def test_invalid_or_incomplete_units_do_not_pass(self):
+        for units in (None, [], [None], [{}], [{"metadata": {"complete": False}}]):
+            with self.subTest(units=units):
+                self.report_data["units"] = units
+                self.report.write_text(json.dumps(self.report_data))
+                with self.assertRaises(ValueError):
+                    verify(self.root, "GALE01", "ninja")
 
     def test_missing_artifacts_fail_even_when_ninja_succeeds(self):
         for artifact in (self.dol, self.report):
