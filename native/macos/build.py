@@ -123,8 +123,10 @@ def main():
         (runtime, HERE / "patches/fast-load.patch"),
         (runtime / "upstream/ModernGekko-Template/lib/ModernGekko", HERE / "patches/runtime-sdl.patch"),
         (runtime / "upstream/ModernGekko-Template/lib/ModernGekko", HERE / "patches/runtime-cache.patch"),
+        (runtime / "upstream/ModernGekko-Template/lib/ModernGekko", HERE / "patches/startup-inspection.patch"),
         (dolphin, HERE / "patches/strict-cpu.patch"),
         (dolphin, HERE / "patches/native-boot.patch"),
+        (dolphin, HERE / "patches/disc-transfer.patch"),
     ]
     # Restore only our known patches before the upstream script checks its patches.
     # This keeps repeat builds safe when patch hunks touch the same source file.
