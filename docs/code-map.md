@@ -26,6 +26,9 @@ field.
 | Menus and unlock rules | [`mn/mnmain.c`](../src/melee/mn/mnmain.c) and [`gm/gm_1601.c`](../src/melee/gm/gm_1601.c) | Menu code lives in `mn`. `gm_IsCKindUnlocked` answers whether a character is available. |
 | Cameras and on-screen interface | [`cm/camera.c`](../src/melee/cm/camera.c) and [`if`](../src/melee/if) | Start here for camera rules and in-game interface changes. Menus use `mn`. |
 | Disc files and asset loading | [`lb/lbdvd.c`](../src/melee/lb/lbdvd.c) and [`baselib/archive.c`](../src/sysdolphin/baselib/archive.c) | `HSD_ArchiveParse` reads an archive and relocates its internal references. `HSD_ArchiveGetPublicAddress` finds a named root. |
+| Controller sampling and button history | [`baselib/controller.c`](../src/sysdolphin/baselib/controller.c) | Follow raw samples through the queue and the master, copy, and game status arrays. See the [controller guide](code/controller-input.md). |
+| Rumble playback | [`baselib/rumble.c`](../src/sysdolphin/baselib/rumble.c) | The [rumble guide](code/rumble.md) explains scripts, priorities, and motor output. |
+| Object pools | [`baselib/objalloc.c`](../src/sysdolphin/baselib/objalloc.c) | `HSD_ObjAlloc` and `HSD_ObjFree` reuse fixed-size storage. See the [pool guide](code/object-allocation.md). |
 
 ## Follow a fighter state
 

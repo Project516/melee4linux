@@ -76,8 +76,8 @@ and game arrays through `lb_80019900`. The scene loop in
 game updates in that order. Some trophy code uses this entry point directly.
 
 After sampling, disconnected controllers contribute to a `PADReset` channel
-mask. The console reset-switch flag becomes set when the physical switch is
-released after being held. `HSD_PadReset` clears that flag, flushes queued
+mask. The console reset-switch flag becomes set after the SDK reports a
+held-to-released transition. `HSD_PadReset` clears that flag, flushes queued
 samples, stops rumble, and recalibrates all four channels.
 
 ## Matching constraints

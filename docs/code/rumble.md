@@ -10,8 +10,8 @@ updates. This code does not convert them to seconds.
 
 `HSD_PadRumbleInit` receives an array of entries and links it into one shared
 free list. The game supplies 12 entries in
-[`gmmain.c`](../../src/melee/gm/gmmain.c). No entry allocation occurs during
-playback.
+[`gmmain.c`](../../src/melee/gm/gmmain.c). Playback uses this fixed pool and
+does not request heap memory.
 
 `HSD_PadRumbleAdd` takes one free entry, assigns its ID, priority, duration,
 and script pointers, then inserts it into the controller's list. It returns
