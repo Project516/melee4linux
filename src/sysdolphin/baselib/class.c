@@ -81,30 +81,28 @@ HSD_MemoryEntry* GetMemoryEntry(s32 idx)
     HSD_ASSERT(171, idx >= 0);
 
     if (idx >= nb_memory_list) {
-        if (nb_memory_list ==
-            0) { // In this case, it's uninitialized and allocs the array
-            s32 new_nb;
+        if (nb_memory_list == 0) {
+            s32 new_capacity;
 
-            for (new_nb = 32; idx >= new_nb; new_nb *= 2) {
+            for (new_capacity = 32; idx >= new_capacity; new_capacity *= 2) {
             }
-            memory_list = (HSD_MemoryEntry**) HSD_MemAlloc(
-                new_nb * sizeof(*memory_list));
+            memory_list = HSD_MemAlloc(new_capacity * sizeof(*memory_list));
             if (memory_list == NULL) {
                 return NULL;
             }
-            memset(memory_list, 0, new_nb * sizeof(*memory_list));
-            nb_memory_list = new_nb;
-        } else { // Resizes the array
+            memset(memory_list, 0, new_capacity * sizeof(*memory_list));
+            nb_memory_list = new_capacity;
+        } else {
             HSD_MemoryEntry** old_list;
             HSD_MemoryEntry** new_list;
-            s32 old_nb, new_nb;
+            s32 old_table_bytes, new_capacity;
 
-            new_nb = nb_memory_list * 2;
-            while (idx >= new_nb) {
-                new_nb *= 2;
+            new_capacity = nb_memory_list * 2;
+            while (idx >= new_capacity) {
+                new_capacity *= 2;
             }
 
-            new_list = HSD_MemAlloc(sizeof(*memory_list) * new_nb);
+            new_list = HSD_MemAlloc(sizeof(*memory_list) * new_capacity);
             if (new_list == NULL) {
                 return NULL;
             }
@@ -112,25 +110,24 @@ HSD_MemoryEntry* GetMemoryEntry(s32 idx)
             memcpy(new_list, memory_list,
                    sizeof(*memory_list) * nb_memory_list);
             memset(&new_list[nb_memory_list], 0,
-                   4 * (new_nb -
-                        nb_memory_list)); // You start *after* existing ptrs
-                                          // and make sure memory is zero'd
+                   sizeof(*memory_list) * (new_capacity - nb_memory_list));
 
             old_list = memory_list;
-            old_nb = OSRoundDown32B(nb_memory_list * sizeof(*memory_list));
+            old_table_bytes =
+                OSRoundDown32B(nb_memory_list * sizeof(*memory_list));
             memory_list = new_list;
-            nb_memory_list = new_nb;
+            nb_memory_list = new_capacity;
 
-            hsdFreeMemPiece(old_list, old_nb);
-            memory_list[OSRoundUp32B(old_nb) / 32 - 1]->nb_alloc += 1;
+            // Reuse the old pointer table as a free piece in its size class.
+            hsdFreeMemPiece(old_list, old_table_bytes);
+            memory_list[OSRoundUp32B(old_table_bytes) / 32 - 1]->nb_alloc += 1;
         }
     }
 
     {
         ssize_t i;
-        bool found;
+        bool linked_after_previous;
         HSD_MemoryEntry* entry;
-        size_t size = idx * 4;
         if (memory_list[idx] == NULL) {
             entry = HSD_MemAlloc(sizeof(HSD_MemoryEntry));
             if (entry == NULL) {
@@ -140,16 +137,16 @@ HSD_MemoryEntry* GetMemoryEntry(s32 idx)
             entry->size = (idx + 1) * 32;
             memory_list[idx] = entry;
 
-            found = false;
+            linked_after_previous = false;
             for (i = idx - 1; i >= 0; --i) {
                 if (memory_list[i] != NULL) {
-                    found = true;
+                    linked_after_previous = true;
                     entry->next = memory_list[i]->next;
                     memory_list[i]->next = entry;
                     break;
                 }
             }
-            if (found == false) {
+            if (linked_after_previous == false) {
                 for (i = idx + 1; i < nb_memory_list; i++) {
                     if (memory_list[i] != NULL) {
                         entry->next = memory_list[i];
@@ -162,73 +159,81 @@ HSD_MemoryEntry* GetMemoryEntry(s32 idx)
     }
 }
 
+// A split creates a new tracked piece. A normal free only increases nb_free.
+static inline void addFreePiece(HSD_MemoryEntry* entry, HSD_FreeList* piece)
+{
+    piece->next = entry->free_list;
+    entry->free_list = piece;
+    entry->nb_alloc += 1;
+    entry->nb_free += 1;
+}
+
 void* hsdAllocMemPiece(s32 size)
 {
-    HSD_FreeList* temp_r3_2;
-    HSD_FreeList* temp_r4;
-    HSD_FreeList* temp_r4_2;
-    HSD_FreeList* temp_r5;
-    HSD_MemoryEntry* temp_r3_3;
-    HSD_MemoryEntry* temp_r3_4;
-    HSD_MemoryEntry* var_r28;
-    HSD_MemoryEntry* var_r30;
-    s32 temp_r28;
-    s32 temp_r29;
-    void* temp_r3;
+    HSD_FreeList* free_piece;
+    HSD_FreeList* chunk_remainder;
+    HSD_FreeList* split_remainder;
+    HSD_FreeList* larger_piece;
+    HSD_MemoryEntry* requested_entry;
+    HSD_MemoryEntry* split_entry;
+    HSD_MemoryEntry* larger_entry;
+    HSD_MemoryEntry* remainder_entry;
+    s32 remainder_index;
+    s32 entry_index;
+    void* chunk;
 
-    temp_r29 = (size + 0x1F) / 32 - 1;
-    temp_r3_3 = GetMemoryEntry((size + 0x1F) / 32 - 1);
-    if (temp_r3_3 == NULL) {
+    entry_index = (size + 0x1F) / 32 - 1;
+    requested_entry = GetMemoryEntry((size + 0x1F) / 32 - 1);
+    if (requested_entry == NULL) {
         return NULL;
     }
-    if ((temp_r3_2 = temp_r3_3->free_list)) {
-        temp_r3_3->free_list = temp_r3_2->next;
-        temp_r3_3->nb_free -= 1;
-        return temp_r3_2;
+    if ((free_piece = requested_entry->free_list) != NULL) {
+        requested_entry->free_list = free_piece->next;
+        requested_entry->nb_free -= 1;
+        return free_piece;
     }
-    var_r28 = temp_r3_3->next;
-    while (var_r28 != NULL) {
-        if (var_r28->free_list != NULL) {
-            temp_r3_4 = GetMemoryEntry(
-                (s32) (var_r28->size - temp_r3_3->size + 0x1F) / 32 - 1);
-            if (temp_r3_4 == NULL) {
+    // Split the first larger size class that has a free piece.
+    larger_entry = requested_entry->next;
+    while (larger_entry != NULL) {
+        if (larger_entry->free_list != NULL) {
+            split_entry = GetMemoryEntry(
+                (s32) (larger_entry->size - requested_entry->size + 0x1F) /
+                    32 -
+                1);
+            if (split_entry == NULL) {
                 return NULL;
             }
-            temp_r5 = var_r28->free_list;
-            var_r28->free_list = var_r28->free_list->next;
-            var_r28->nb_free -= 1;
-            var_r28->nb_alloc -= 1;
-            temp_r4_2 = (void*) ((char*) temp_r5 + temp_r3_3->size);
-            temp_r4_2->next = temp_r3_4->free_list;
-            temp_r3_4->free_list = temp_r4_2;
-            temp_r3_4->nb_alloc += 1;
-            temp_r3_4->nb_free += 1;
-            temp_r3_3->nb_alloc += 1;
-            return temp_r5;
+            larger_piece = larger_entry->free_list;
+            larger_entry->free_list = larger_entry->free_list->next;
+            larger_entry->nb_free -= 1;
+            larger_entry->nb_alloc -= 1;
+            split_remainder =
+                (void*) ((char*) larger_piece + requested_entry->size);
+            addFreePiece(split_entry, split_remainder);
+            requested_entry->nb_alloc += 1;
+            return larger_piece;
         }
-        var_r28 = var_r28->next;
+        larger_entry = larger_entry->next;
     }
-    temp_r28 = (nb_memory_list - temp_r29) - 2;
-    temp_r29 = temp_r28;
-    if (temp_r29 >= 0) {
-        var_r30 = GetMemoryEntry(temp_r29);
-        if (var_r30 == NULL) {
+    // A new chunk spans the current table capacity in 32-byte units.
+    remainder_index = (nb_memory_list - entry_index) - 2;
+    entry_index = remainder_index;
+    if (entry_index >= 0) {
+        remainder_entry = GetMemoryEntry(entry_index);
+        if (remainder_entry == NULL) {
             return NULL;
         }
     }
-    temp_r3 = HSD_MemAlloc(nb_memory_list * 32);
-    if (temp_r3 == NULL) {
+    chunk = HSD_MemAlloc(nb_memory_list * 32);
+    if (chunk == NULL) {
         return NULL;
     }
-    if (temp_r28 >= 0) {
-        temp_r4 = (void*) ((char*) temp_r3 + temp_r3_3->size);
-        temp_r4->next = var_r30->free_list;
-        var_r30->free_list = temp_r4;
-        var_r30->nb_alloc += 1;
-        var_r30->nb_free += 1;
+    if (remainder_index >= 0) {
+        chunk_remainder = (void*) ((char*) chunk + requested_entry->size);
+        addFreePiece(remainder_entry, chunk_remainder);
     }
-    temp_r3_3->nb_alloc += 1;
-    return temp_r3;
+    requested_entry->nb_alloc += 1;
+    return chunk;
 }
 
 void hsdFreeMemPiece(void* mem, s32 size)

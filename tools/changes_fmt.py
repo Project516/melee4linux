@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 
 from argparse import ArgumentParser
-import os
 import json
 from pathlib import Path
 from typing import Optional, Tuple
-
-script_dir = os.path.dirname(os.path.realpath(__file__))
-root_dir = os.path.abspath(os.path.join(script_dir, ".."))
-
 
 UNIT_KEYS_TO_DIFF = [
     "fuzzy_match_percent",
@@ -22,7 +17,7 @@ FUNCTION_KEYS_TO_DIFF = [
     "fuzzy_match_percent",
 ]
 
-Change = Tuple[str, str, float, float]
+Change = Tuple[Optional[str], str, float, float]
 
 
 def format_float(value: float) -> str:
@@ -31,9 +26,8 @@ def format_float(value: float) -> str:
     return "%6.2f" % value
 
 
-def get_changes(changes_file: str) -> Tuple[list[Change], list[Change]]:
-    changes_file = os.path.relpath(changes_file, root_dir)
-    with open(changes_file, "r") as f:
+def get_changes(changes_file: str | Path) -> Tuple[list[Change], list[Change]]:
+    with open(changes_file, "r", encoding="utf-8") as f:
         changes_json = json.load(f)
 
     regressions = []
@@ -144,11 +138,11 @@ def main():
     regressions, progressions = get_changes(args.report_changes_file)
 
     if args.output:
-        markdown_output = generate_changes_markdown(regressions, "regressions")
+        sections = [generate_changes_markdown(regressions, "regressions")]
         if args.all:
-            markdown_output += generate_changes_markdown(progressions, "progressions")
+            sections.append(generate_changes_markdown(progressions, "progressions"))
         with open(args.output, "w", encoding="utf-8") as f:
-            f.write(markdown_output)
+            f.write("\n\n".join(section for section in sections if section))
     else:
         if args.all:
             changes = progressions + regressions

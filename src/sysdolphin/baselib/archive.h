@@ -46,9 +46,16 @@ struct HSD_Archive {
 };
 ASSERT_SIZE(struct HSD_Archive, 0x44);
 
-s32 HSD_ArchiveParse(HSD_Archive*, u8*, size_t file_size);
-void* HSD_ArchiveGetPublicAddress(HSD_Archive*, const char*);
-char* HSD_ArchiveGetExtern(HSD_Archive*, int);
-void HSD_ArchiveLocateExtern(HSD_Archive*, const char*, void*);
+/// Relocates src in place. The archive borrows this writable GameCube data.
+/// Call only on data that has not yet been relocated.
+s32 HSD_ArchiveParse(HSD_Archive* archive, u8* src, size_t file_size);
+/// Returns data for the first matching public name, or NULL if absent.
+void* HSD_ArchiveGetPublicAddress(HSD_Archive* archive,
+                                  const char* symbol_name);
+/// Returns a borrowed external name by index, or NULL if the index is invalid.
+char* HSD_ArchiveGetExtern(HSD_Archive* archive, int extern_index);
+/// Patches the first matching name and consumes its encoded reference chain.
+void HSD_ArchiveLocateExtern(HSD_Archive* archive, const char* symbol_name,
+                             void* address);
 
 #endif

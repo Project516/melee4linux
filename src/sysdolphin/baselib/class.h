@@ -38,16 +38,18 @@ typedef struct _HSD_ClassInfo {
     void (*amnesia)(struct _HSD_ClassInfo* c);
 } HSD_ClassInfo;
 
+// A free piece stores its next pointer in the memory returned by the caller.
 typedef struct _HSD_FreeList {
-    struct _HSD_FreeList* next;
+    /* 0x00 */ struct _HSD_FreeList* next;
 } HSD_FreeList;
 
 typedef struct _HSD_MemoryEntry {
-    u32 size;
-    u32 nb_alloc;
-    u32 nb_free;
-    struct _HSD_FreeList* free_list;
-    struct _HSD_MemoryEntry* next;
+    /* 0x00 */ u32 size;     // Bytes, in multiples of 32.
+    /* 0x04 */ u32 nb_alloc; // Pieces in use plus free pieces.
+    /* 0x08 */ u32 nb_free;  // Pieces on free_list.
+    /* 0x0C */ struct _HSD_FreeList* free_list;
+    // Next existing entry with a larger piece size.
+    /* 0x10 */ struct _HSD_MemoryEntry* next;
 } HSD_MemoryEntry;
 
 extern HSD_ClassInfo hsdClass;
@@ -59,7 +61,9 @@ void hsdInitClassInfo(HSD_ClassInfo* class_info, HSD_ClassInfo* parent_info,
                       s32 class_size);
 void OSReport_PrintSpaces(s32 count);
 
+// Allocate an uninitialized piece. size must be positive.
 void* hsdAllocMemPiece(s32 size);
+// Return a piece to its size class. Use the allocation size. NULL is ignored.
 void hsdFreeMemPiece(void* mem, s32 size);
 void* hsdNew(HSD_ClassInfo*);
 bool hsdChangeClass(void* object, void* class_info);
@@ -68,6 +72,7 @@ bool hsdObjIsDescendantOf(HSD_Obj* o, HSD_ClassInfo* p);
 HSD_ClassInfo* hsdSearchClassInfo(const char* class_name);
 void hsdForgetClassLibrary(const char* library_name);
 
+// Get or create the entry for (idx + 1) * 32 bytes. idx must be nonnegative.
 HSD_MemoryEntry* GetMemoryEntry(s32 idx);
 HSD_Class* _hsdClassAlloc(HSD_ClassInfo* info);
 int _hsdClassInit(HSD_Class* arg0);

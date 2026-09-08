@@ -65,11 +65,17 @@ struct HSD_AnimJoint {
 void HSD_AObjInitAllocData(void);
 HSD_ObjAllocData* HSD_AObjGetAllocData(void);
 u32 HSD_AObjGetFlags(HSD_AObj* aobj);
+/// Only AOBJ_LOOP and AOBJ_NO_UPDATE can be set through this function.
 void HSD_AObjSetFlags(HSD_AObj* aobj, u32 flags);
+/// Only AOBJ_LOOP and AOBJ_NO_UPDATE can be cleared through this function.
 void HSD_AObjClearFlags(HSD_AObj* aobj, u32 flags);
+/// Frees the old track chain and takes ownership of fobj when aobj is
+/// non-NULL.
 void HSD_AObjSetFObj(HSD_AObj* aobj, HSD_FObj* fobj);
+/// Resets counts for the next group of animation interpretation calls.
 void HSD_AObjInitEndCallBack(void);
 void HSD_AObjInvokeCallBacks(void);
+/// Starts playback at frame. Next interpretation handles loop/end bounds.
 void HSD_AObjReqAnim(HSD_AObj* aobj, f32 frame);
 void HSD_AObjStopAnim(HSD_AObj* aobj, void* obj, HSD_ObjUpdateFunc func);
 
@@ -77,14 +83,17 @@ void HSD_AObjInterpretAnim(HSD_AObj* aobj, void* obj,
                            HSD_ObjUpdateFunc update_func);
 
 HSD_AObj* HSD_AObjLoadDesc(HSD_AObjDesc* aobjdesc);
+/// Frees all tracks, releases the attached joint, and frees the AObj.
 void HSD_AObjRemove(HSD_AObj* aobj);
 HSD_AObj* HSD_AObjAlloc(void);
+/// Frees only the AObj record. Use HSD_AObjRemove to release its contents.
 void HSD_AObjFree(HSD_AObj* aobj);
 void HSD_ForeachAnim(void* obj, HSD_Type type, HSD_TypeMask mask, void* func,
                      AObj_Arg_Type arg_type, ...);
 void HSD_AObjSetRate(HSD_AObj* aobj, f32 rate);
 void HSD_AObjSetRewindFrame(HSD_AObj* aobj, f32 frame);
 void HSD_AObjSetEndFrame(HSD_AObj* aobj, f32 frame);
+/// Seeks only if playback is active. Does not restart a stopped AObj.
 void HSD_AObjSetCurrentFrame(HSD_AObj* aobj, f32 frame);
 void _HSD_AObjForgetMemory(void* low, void* high);
 

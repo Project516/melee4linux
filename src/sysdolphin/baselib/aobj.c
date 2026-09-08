@@ -22,7 +22,9 @@ HSD_ObjAllocData aobj_alloc_data;
 
 static HSD_SList* endcallback_list;
 
+/* Processed calls ending with AOBJ_NO_ANIM set, since the last reset. */
 static s32 HSD_AObj_804D762C;
+/* Processed calls ending with AOBJ_NO_ANIM clear, since the last reset. */
 static s32 HSD_AObj_804D7630;
 
 void HSD_AObjInitAllocData(void)
@@ -121,42 +123,47 @@ void HSD_AObjStopAnim(HSD_AObj* aobj, void* obj, HSD_ObjUpdateFunc func)
 void HSD_AObjInterpretAnim(HSD_AObj* aobj, void* obj,
                            HSD_ObjUpdateFunc update_func)
 {
-    f32 rate = 0;
+    f32 frame_step = 0;
 
     if (!aobj || aobj->flags & AOBJ_NO_ANIM) {
         return;
     }
 
+    /* Sample a requested frame once before advancing the timeline. */
     if (aobj->flags & AOBJ_FIRST_PLAY) {
-        aobj->flags &= 0xF7FFFFFF;
-        rate = 0.0F;
+        aobj->flags &= ~AOBJ_FIRST_PLAY;
+        frame_step = 0.0F;
     } else {
-        rate = aobj->framerate;
+        frame_step = aobj->framerate;
         aobj->curr_frame += aobj->framerate;
     }
 
     if ((aobj->flags & AOBJ_LOOP) && aobj->end_frame <= aobj->curr_frame) {
         if (aobj->rewind_frame < aobj->end_frame) {
-            f32 x, y;
+            f32 loop_offset, loop_length;
 
-            HSD_FObjStopAnimAll(aobj->fobj, obj, update_func, rate);
-            y = aobj->end_frame - aobj->rewind_frame;
-            x = aobj->curr_frame - aobj->rewind_frame;
-            aobj->curr_frame = fmodf(x, y) + aobj->rewind_frame;
+            HSD_FObjStopAnimAll(aobj->fobj, obj, update_func, frame_step);
+            loop_length = aobj->end_frame - aobj->rewind_frame;
+            loop_offset = aobj->curr_frame - aobj->rewind_frame;
+            aobj->curr_frame =
+                fmodf(loop_offset, loop_length) + aobj->rewind_frame;
             HSD_FObjReqAnimAll(aobj->fobj, aobj->curr_frame);
         } else {
             aobj->curr_frame = aobj->end_frame;
         }
-        rate = 0.0F;
+        frame_step = 0.0F;
         aobj->flags |= AOBJ_REWINDED;
     } else {
-        aobj->flags &= 0xFBFFFFFF;
+        aobj->flags &= ~AOBJ_REWINDED;
     }
 
+    /* NO_UPDATE advances tracks without the main update callback.
+     * The stop calls can still flush key updates through update_func.
+     */
     if (aobj->flags & AOBJ_NO_UPDATE) {
-        HSD_FObjInterpretAnimAll(aobj->fobj, obj, NULL, rate);
+        HSD_FObjInterpretAnimAll(aobj->fobj, obj, NULL, frame_step);
     } else {
-        HSD_FObjInterpretAnimAll(aobj->fobj, obj, update_func, rate);
+        HSD_FObjInterpretAnimAll(aobj->fobj, obj, update_func, frame_step);
     }
 
     if (!(aobj->flags & AOBJ_LOOP) && (aobj->end_frame <= aobj->curr_frame) &&
@@ -185,7 +192,7 @@ HSD_AObj* HSD_AObjLoadDesc(HSD_AObjDesc* aobjdesc)
 
     HSD_FObj* fobj;
     u32 id;
-    HSD_Obj* phi_r30;
+    HSD_Obj* attached_obj;
 
     if (aobjdesc != NULL) {
         aobj = HSD_AObjAlloc();
@@ -198,18 +205,18 @@ HSD_AObj* HSD_AObjLoadDesc(HSD_AObjDesc* aobjdesc)
         id = aobjdesc->obj_id;
         if (id != 0U) {
             HSD_Obj* hsd_obj = HSD_IDGetDataFromTable(0, id, 0);
-            phi_r30 = hsd_obj;
+            attached_obj = hsd_obj;
             if (hsd_obj != NULL) {
                 ref_INC(hsd_obj);
             } else {
-                phi_r30 =
+                attached_obj =
                     (HSD_Obj*) HSD_JObjLoadJoint((void*) aobjdesc->obj_id);
             }
             if (aobj != NULL) {
                 if (aobj->hsd_obj != NULL) {
                     HSD_JObjUnref((HSD_JObj*) aobj->hsd_obj);
                 }
-                aobj->hsd_obj = phi_r30;
+                aobj->hsd_obj = attached_obj;
             }
         }
         return aobj;
@@ -539,7 +546,7 @@ void HSD_AObjSetCurrentFrame(HSD_AObj* aobj, f32 frame)
 
     if (!(aobj->flags & AOBJ_NO_ANIM) && aobj) {
         aobj->curr_frame = frame;
-        aobj->flags = (aobj->flags & 0xBFFFFFFF) | AOBJ_FIRST_PLAY;
+        aobj->flags = (aobj->flags & ~AOBJ_NO_ANIM) | AOBJ_FIRST_PLAY;
         HSD_FObjReqAnimAll(aobj->fobj, frame);
     }
 }
