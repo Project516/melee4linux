@@ -1,5 +1,5 @@
 diff --git a/macos/MeleeFrontend.inc b/macos/MeleeFrontend.inc
-index 0daf356..8548fcb 100644
+index 0daf356..dbe2f00 100644
 --- a/macos/MeleeFrontend.inc
 +++ b/macos/MeleeFrontend.inc
 @@ -5,6 +5,8 @@
@@ -11,10 +11,12 @@ index 0daf356..8548fcb 100644
  #include <cstdlib>
  #include <cstring>
  #include "Core/HW/GCPad.h"
-@@ -222,6 +224,15 @@ extern std::atomic<bool> g_melee_menu_open;
+@@ -221,7 +223,16 @@ extern std::atomic<bool> g_melee_menu_open;
+   latency.state=!self.preferences[@"low_latency"] || [self.preferences[@"low_latency"] boolValue];
    [v addSubview:latency];
    [self button:@"Toggle fullscreen" action:@selector(fullscreen:) at:NSMakeRect(20,125,250,35) in:v];
-   [self label:@"120 FPS adds predicted motion. Use a 120 Hz display.\nVertical sync uses 60 FPS on a 60 Hz display.\nFrame rate, sync, and input delay apply next launch.\nAuto resolution follows the window size." at:NSMakeRect(20,10,565,105) in:v];
+-  [self label:@"120 FPS adds predicted motion. Use a 120 Hz display.\nVertical sync uses 60 FPS on a 60 Hz display.\nFrame rate, sync, and input delay apply next launch.\nAuto resolution follows the window size." at:NSMakeRect(20,10,565,105) in:v];
++  [self label:@"120 FPS adds predicted motion. Use a 120 Hz display.\nDisplays below 120 Hz use 60 FPS.\nFrame rate, sync, and input delay apply next launch.\nAuto resolution follows the window size." at:NSMakeRect(20,10,565,105) in:v];
 +  v = [self tab:@"Textures"];
 +  const auto texture_pack = MeleeTextures::FindPackRoot(
 +      getenv("MELEE_TEXTURE_PACK") ?: "", File::GetBundleDirectory());
@@ -77,3 +79,21 @@ index 0daf356..8548fcb 100644
      if (getenv("MELEE_APP_BUNDLE") && !NetPlay::IsNetPlayRunning())
      {
        const bool fast_loading = !prefs[@"fast_loading"] || [prefs[@"fast_loading"] boolValue];
+@@ -356,14 +394,14 @@ extern "C" void MeleeApplyMediaPreferences()
+       // Explicit environment values let local benchmarks select a launch mode.
+       const int fps = [prefs[@"render_fps"] intValue] == 60 ? 60 : 120;
+       setenv("MELEE_RENDER_FPS", fps == 120 ? "120" : "60", 0);
+-      const bool vsync = prefs[@"vsync"] ? [prefs[@"vsync"] boolValue] : Config::Get(Config::GFX_VSYNC);
++      // The compositor can limit presentation even when vertical sync is off.
+       CGDisplayModeRef display_mode = CGDisplayCopyDisplayMode(CGMainDisplayID());
+       const double display_hz = display_mode ? CGDisplayModeGetRefreshRate(display_mode) : 0;
+       if (display_mode) CGDisplayModeRelease(display_mode);
+-      if (vsync && display_hz > 0 && display_hz < 100)
++      if (display_hz > 0 && display_hz < 119)
+       {
+         setenv("MELEE_RENDER_FPS", "60", 1);
+-        fprintf(stderr, "[melee-video] Using 60 FPS for vertical sync on a %.2f Hz display.\n", display_hz);
++        fprintf(stderr, "[melee-video] Using 60 FPS on a %.2f Hz display to keep normal game speed.\n", display_hz);
+       }
+       const bool low_latency = !prefs[@"low_latency"] || [prefs[@"low_latency"] boolValue];
+       setenv("MELEE_LOW_LATENCY", low_latency ? "1" : "0", 0);

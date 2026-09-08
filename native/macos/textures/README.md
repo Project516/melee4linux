@@ -86,3 +86,18 @@ The optional hook compiles with the native runtime's ARM64 flags. Descriptor
 checks cover wrong dimensions, reused addresses, short descriptors, and
 out-of-range source data. An actual ending screen still needs visual testing
 in the built app before claiming coverage in gameplay.
+
+## Display pacing
+
+The native app uses 60 FPS when macOS reports a display below 119 Hz, even
+with vertical sync off. The one Hz tolerance includes common 119.88 Hz modes.
+On this Mac's 60 Hz display, the compositor sometimes limited a requested
+120 FPS session to 60 presentations per second. The experimental game loop
+then ran only 30 simulation updates per second. Low GPU times showed that
+texture throughput was not the limit in that capture.
+
+The display limit keeps the game at normal speed on these displays. Displays
+at 120 Hz or above can use 120 FPS. A refresh value of zero means macOS did
+not report a fixed rate, so the requested rate remains in effect. The app
+uses the main display's rate at launch. Moving it to another display does not
+change that rate until the next launch.
