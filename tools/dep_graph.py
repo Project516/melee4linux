@@ -17,6 +17,7 @@ Usage:
     python tools/dep_graph.py --rdeps FILE       # Show what depends on FILE
     python tools/dep_graph.py --cycles           # Detect dependency cycles
     python tools/dep_graph.py --chain            # Show unlock chains
+    python tools/dep_graph.py --matching         # Include Matching units and their references
 """
 
 import argparse
@@ -242,7 +243,10 @@ def find_leaves(
     include_matching: bool = False,
 ) -> list[tuple[str, int]]:
     """
-    Find NonMatching files that no other NonMatching file depends on.
+    Find files with no dependents among the selected build statuses.
+
+    By default, select NonMatching files. include_matching also selects
+    Matching files and counts their references when deciding which are leaves.
 
     Returns list of (path, undefined_count) tuples, sorted by undefined count.
     """
@@ -251,23 +255,14 @@ def find_leaves(
         target_status.add("Matching")
 
     target_files = {p for p, o in objects.items() if o.status in target_status}
-    non_matching = {p for p, o in objects.items() if o.status == "NonMatching"}
 
     leaves: list[tuple[str, int]] = []
     for path in sorted(target_files):
-        if objects[path].status != "NonMatching":
-            continue
-
-        # Get files that depend on this one
-        dependents = rdeps.get(path, set())
-        # Filter to only NonMatching dependents
-        nm_dependents = dependents & non_matching
-
-        if not nm_dependents:
+        if not (rdeps.get(path, set()) & target_files):
             undefined_count = len(objects[path].undefined_symbols)
             leaves.append((path, undefined_count))
 
-    # Sort by undefined count (fewer = easier to convert)
+    # Use the path to keep equal counts in a stable order.
     leaves.sort(key=lambda x: (x[1], x[0]))
     return leaves
 
@@ -275,7 +270,6 @@ def find_leaves(
 def find_unlock_chain(
     objects: dict[str, ObjectFile],
     rdeps: dict[str, set[str]],
-    max_depth: int = 3,
 ) -> list[tuple[str, list[str]]]:
     """
     Find files that would unlock other files when converted to Matching.
@@ -284,31 +278,16 @@ def find_unlock_chain(
     """
     non_matching = {p for p, o in objects.items() if o.status == "NonMatching"}
 
-    def get_nm_dependents(path: str) -> set[str]:
-        return rdeps.get(path, set()) & non_matching
-
-    def would_become_leaf(path: str, converted: set[str]) -> bool:
-        """Check if path would become a leaf if 'converted' files were Matching."""
-        nm_dependents = get_nm_dependents(path) - converted
-        return len(nm_dependents) == 0
-
-    # Find files that would unlock others
     unlock_map: dict[str, list[str]] = defaultdict(list)
+    for path in sorted(non_matching):
+        dependents = rdeps.get(path, set()) & non_matching
+        # Converting the sole remaining user makes this file a leaf.
+        if len(dependents) == 1:
+            dependent = next(iter(dependents))
+            unlock_map[dependent].append(path)
 
-    for path in non_matching:
-        # What files depend on this one?
-        nm_dependents = get_nm_dependents(path)
-        if not nm_dependents:
-            continue  # Already a leaf
-
-        # If this file were converted, which files would become leaves?
-        for dependent in nm_dependents:
-            if would_become_leaf(dependent, {path}):
-                unlock_map[path].append(dependent)
-
-    # Sort by number of files unlocked (most impactful first)
-    result = [(path, unlocks) for path, unlocks in unlock_map.items() if unlocks]
-    result.sort(key=lambda x: -len(x[1]))
+    result = list(unlock_map.items())
+    result.sort(key=lambda item: (-len(item[1]), item[0]))
     return result
 
 
@@ -353,19 +332,19 @@ def find_cycles(deps: dict[str, set[str]], max_cycles: int = 20) -> list[list[st
 def print_leaves(
     leaves: list[tuple[str, int]],
     objects: dict[str, ObjectFile],
+    include_matching: bool = False,
 ) -> None:
-    """Print leaf NonMatching files, ranked by complexity."""
-    print(f"\nLeaf NonMatching files ({len(leaves)} files):")
-    print(
-        "These can potentially be converted to Matching without breaking other NonMatching files."
-    )
-    print("Sorted by external symbol count (fewer = easier to convert).\n")
+    """Print leaves for the selected statuses, ordered by reference count."""
+    statuses = "Matching or NonMatching" if include_matching else "NonMatching"
+    print(f"\nLeaf files ({len(leaves)} files):")
+    print(f"No other {statuses} file refers to these files.")
+    print("Sorted by external symbol count.\n")
 
     for path, undefined_count in leaves:
         obj = objects[path]
         func_info = f", {obj.function_count} funcs" if obj.function_count else ""
         match_info = f", {obj.match_percent:.1f}% matched" if obj.match_percent else ""
-        print(f"  {path}")
+        print(f"  {path} ({obj.status})")
         print(f"    -> {undefined_count} external refs{func_info}{match_info}")
 
 
@@ -502,7 +481,7 @@ def main() -> int:
     parser.add_argument(
         "--matching",
         action="store_true",
-        help="Include Matching files in leaf analysis",
+        help="Include Matching files and their references in leaf analysis",
     )
     parser.add_argument(
         "--limit",
@@ -539,7 +518,7 @@ def main() -> int:
         leaves = find_leaves(objects, rdeps, args.matching)
         if args.limit > 0:
             leaves = leaves[: args.limit]
-        print_leaves(leaves, objects)
+        print_leaves(leaves, objects, args.matching)
     elif args.deps:
         print_deps(args.deps, deps, objects)
     elif args.rdeps:
@@ -561,7 +540,7 @@ def main() -> int:
         leaves = find_leaves(objects, rdeps, args.matching)
         if args.limit > 0:
             leaves = leaves[: args.limit]
-        print_leaves(leaves, objects)
+        print_leaves(leaves, objects, args.matching)
 
     return 0
 
