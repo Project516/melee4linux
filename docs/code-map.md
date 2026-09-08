@@ -62,6 +62,15 @@ rg -n 'ftCo_Jump_Anim' src/melee/ft
 rg -n 'tap_jump_threshold|tap_jump_window' src/melee/ft
 ```
 
+To find candidate headers, run:
+
+```sh
+python tools/find_include.py Fighter_ChangeMotionState
+```
+
+The tool lists every header with a whole-word match, in path order. Read the
+candidates to find the declaration. A match can also be a use or a comment.
+
 The callback order matters. For example, the jump input check tests the
 stick before X/Y. A cleanup must preserve that order unless it deliberately
 changes gameplay.
