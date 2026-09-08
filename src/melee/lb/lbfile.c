@@ -11,6 +11,7 @@
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/devcom.h>
 
+// Despite its name, this flag becomes true after a completed read.
 static bool cancel;
 
 static void lbFile_8001615C(int dcreq, int args, void* buf, bool cancelflag)
@@ -56,53 +57,53 @@ const int MAX_BASENAME_LENGTH = MAX_FILENAME_LENGTH - FILE_EXTENSION_LENGTH;
 char* lbFileGetFullName(const char* basename)
 {
     static char result[MAX_FILENAME_LENGTH];
-    const char* cur = basename;
-    int pos = 0;
+    const char* cursor = basename;
+    int write_index = 0;
 
-    while (*cur != '\0' && *cur != '.') {
+    while (*cursor != '\0' && *cursor != '.') {
         // no room for file extension?
-        if (pos > MAX_BASENAME_LENGTH) {
+        if (write_index > MAX_BASENAME_LENGTH) {
             OSReport("Error : file name too long %s.", basename);
             HSD_ASSERT(0x99, NULL);
         }
-        result[pos++] = *cur++;
+        result[write_index++] = *cursor++;
     }
     // keep any existing file extension
-    if (cur[0] != '\0' && cur[1] != '\0') {
+    if (cursor[0] != '\0' && cursor[1] != '\0') {
         strcpy(result, basename);
         // otherwise, append the appropriate extension for the locale
-    } else if (*cur == '.') {
-        result[pos++] = '.';
+    } else if (*cursor == '.') {
+        result[write_index++] = '.';
         if (lbLang_IsSettingUS()) {
-            strcpy(&result[pos], "usd");
+            strcpy(&result[write_index], "usd");
         } else {
-            strcpy(&result[pos], "dat");
+            strcpy(&result[write_index], "dat");
         }
     } else {
-        result[pos++] = '.';
+        result[write_index++] = '.';
         if (lbLang_IsSavedLanguageUS()) {
-            strcpy(&result[pos], "usd");
+            strcpy(&result[write_index], "usd");
         } else {
-            strcpy(&result[pos], "dat");
+            strcpy(&result[write_index], "dat");
         }
     }
     return result;
 }
 
-size_t lbFile_8001634C(int fileno)
+size_t lbFile_8001634C(int entry_num)
 {
-    DVDFileInfo info;
+    DVDFileInfo file_info;
     size_t length;
-    bool intr = OSDisableInterrupts();
+    bool interrupts_enabled = OSDisableInterrupts();
 
-    if (!DVDFastOpen(fileno, &info)) {
-        OSReport("Cannot open file no=%d.", fileno);
+    if (!DVDFastOpen(entry_num, &file_info)) {
+        OSReport("Cannot open file no=%d.", entry_num);
         HSD_ASSERT(0xD8, 0);
     }
 
-    length = info.length;
-    DVDClose(&info);
-    OSRestoreInterrupts(intr);
+    length = file_info.length;
+    DVDClose(&file_info);
+    OSRestoreInterrupts(interrupts_enabled);
     return length;
 }
 
@@ -166,7 +167,7 @@ void lbFile_80016760(const char* basename, void** dst, size_t* size)
 bool lbFile_800168A0(int heap_id, const char* basename, void** dst,
                      size_t* size)
 {
-    if ((*dst = lbDvd_8001819C(basename))) {
+    if ((*dst = lbDvd_8001819C(basename)) != NULL) {
         *size = lbFileGetSize(basename);
         return true;
     } else {
