@@ -43,6 +43,17 @@ class PackageTests(unittest.TestCase):
         with self.assertRaisesRegex(package.PackageError, "USA revision 2"):
             package.validate_inputs(self.root)
 
+    def test_texture_pack_rejects_missing_textures_and_symlinks(self):
+        with self.assertRaisesRegex(package.PackageError, "DDS textures"):
+            package.validate_texture_pack(self.root)
+        textures = self.root / "GALE01"
+        textures.mkdir()
+        (textures / "texture.dds").write_bytes(b"DDS test")
+        self.assertEqual(package.validate_texture_pack(self.root), self.root.resolve())
+        (textures / "external.dds").symlink_to(textures / "texture.dds")
+        with self.assertRaisesRegex(package.PackageError, "symbolic links"):
+            package.validate_texture_pack(self.root)
+
     def test_empty_assets_are_rejected(self):
         self.make_input()
         (self.root / "private/GALE01r2/files/asset.dat").unlink()

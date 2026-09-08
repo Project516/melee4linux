@@ -1,0 +1,6 @@
+# Use a virtual environment under ignored build/. CPU and Apple MPS work.
+Pillow==12.3.0
+numpy==2.5.3
+scipy==1.18.1
+torch==2.14.0
+xxhash==4.0.1

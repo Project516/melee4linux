@@ -1,0 +1,64 @@
+diff --git a/Source/Core/VideoCommon/HiresTextures.cpp b/Source/Core/VideoCommon/HiresTextures.cpp
+index a619397..13d1cdf 100644
+--- a/Source/Core/VideoCommon/HiresTextures.cpp
++++ b/Source/Core/VideoCommon/HiresTextures.cpp
+@@ -20,10 +20,13 @@
+ #include "Common/Logging/Log.h"
+ #include "Common/StringUtil.h"
+ #include "Core/Config/ConfigManager.h"
++#include "Core/HW/Memmap.h"
+ #include "Core/System.h"
+ #include "VideoCommon/Assets/DirectFilesystemAssetLibrary.h"
++#include "VideoCommon/MeleeEndingStills.h"
+ #include "VideoCommon/OnScreenDisplay.h"
+ #include "VideoCommon/Resources/CustomResourceManager.h"
++#include "VideoCommon/TextureDecoder.h"
+ #include "VideoCommon/VideoConfig.h"
+
+ constexpr std::string_view s_format_prefix{"tex1_"};
+@@ -35,6 +38,33 @@ static auto s_file_library = std::make_shared<VideoCommon::DirectFilesystemAsset
+
+ namespace
+ {
++// Ending stills decode to YUV buffers whose pixels depend on the decoder.
++// Name their replacements from the original compressed file instead.
++std::string GetEndingStillName(const TextureInfo &texture_info)
++{
++  if (!std::getenv("MODERNGEKKO_STATICRECOMP") ||
++      texture_info.GetTextureFormat() != TextureFormat::I8 ||
++      SConfig::GetInstance().GetGameID() != "GALE01" || SConfig::GetInstance().GetRevision() != 2)
++    return {};
++  const auto width = texture_info.GetRawWidth();
++  const auto height = texture_info.GetRawHeight();
++  if (!((width == 560 && height == 416) || (width == 280 && height == 208)))
++    return {};
++
++  const auto &memory = Core::System::GetInstance().GetMemory();
++  const auto *descriptor = memory.GetPointerForRange(0x804335B8, 0xA0);
++  if (!descriptor)
++    return {};
++  const auto plane = MeleeTextures::MatchEndingPlane({descriptor, 0xA0},
++                                                     texture_info.GetRawAddress(), width, height);
++  if (!plane)
++    return {};
++  const auto *source = memory.GetPointerForRange(plane->source_address, plane->source_size);
++  if (!source || source[0] != 0xFF || source[1] != 0xD8)
++    return {};
++  return fmt::format("tex1_still_{:016x}_{}", XXH64(source, plane->source_size, 0), plane->channel);
++}
++
+ std::pair<std::string, bool> GetNameArbPair(const TextureInfo& texture_info)
+ {
+   if (s_hires_texture_id_to_arbmipmap.empty())
+@@ -69,6 +99,11 @@ std::pair<std::string, bool> GetNameArbPair(const TextureInfo& texture_info)
+     return {texture_name_single_wildcard_tex, iter->second};
+   }
+
++  const auto ending_name = GetEndingStillName(texture_info);
++  if (const auto iter = s_hires_texture_id_to_arbmipmap.find(ending_name);
++      iter != s_hires_texture_id_to_arbmipmap.end())
++    return {ending_name, iter->second};
++
+   return {"", false};
+ }
+ }  // namespace

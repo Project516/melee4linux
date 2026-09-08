@@ -16,7 +16,7 @@ charset = utf-8
 # clang-format handles indentation
 indent_style = unset
 
-[/native/macos/{launcher.m,input/*.inc}]
+[/native/macos/{launcher.m,input/*.inc,timing/benchmark_timer.cpp}]
 # clang-format handles Objective-C continuation alignment.
 indent_style = unset
 
@@ -33,6 +33,10 @@ indent_style = tab
 indent_style = tab
 
 [*.md]
+indent_style = unset
+
+[/tools/texture_upscale/MODEL_LICENSES.txt]
+# Preserve the upstream license text.
 indent_style = unset
 
 [*.sha1]

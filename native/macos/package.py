@@ -203,7 +203,20 @@ def bundle_libraries(images: list[tuple[Path, Path]], frameworks: Path) -> list[
     return signed
 
 
-def assemble(root: Path, app: Path) -> None:
+def validate_texture_pack(path: Path) -> Path:
+    path = path.expanduser().resolve()
+    game = path / "GALE01"
+    if game.is_symlink():
+        raise PackageError("Texture packs must contain real files, not symbolic links.")
+    if not game.is_dir() or not any(game.glob("**/*.dds")):
+        raise PackageError("The texture pack must contain GALE01 with DDS textures.")
+    for item in game.rglob("*"):
+        if item.is_symlink():
+            raise PackageError("Texture packs must contain real files, not symbolic links.")
+    return path
+
+
+def assemble(root: Path, app: Path, texture_pack: Path | None = None) -> None:
     contents = app / "Contents"
     macos = contents / "MacOS"
     resources = contents / "Resources"
@@ -221,6 +234,8 @@ def assemble(root: Path, app: Path) -> None:
     for directory in ("sys", "files"):
         shutil.copytree(root / "private/GALE01r2" / directory, resources / "Game" / directory)
     shutil.copytree(root / "build/runtime/Sys", resources / "Sys")
+    if texture_pack is not None:
+        shutil.copytree(texture_pack / "GALE01", resources / "Textures/GALE01")
     shutil.copy2(root / "config/GCPadNew.ini", resources / "Defaults/GCPadNew.ini")
     for name in ("LICENSE", "CREDITS.md"):
         shutil.copy2(root / name, resources / "Licenses" / name)
@@ -266,7 +281,7 @@ def assemble(root: Path, app: Path) -> None:
     run("/usr/bin/codesign", "--verify", "--deep", "--strict", app)
 
 
-def package(root: Path, output: Path, replace: bool = False) -> Path:
+def package(root: Path, output: Path, replace: bool = False, texture_pack: Path | None = None) -> Path:
     root = root.expanduser().resolve()
     # Resolve the parent, but preserve a final symlink so validation can reject it.
     output = output.expanduser().absolute()
@@ -275,13 +290,17 @@ def package(root: Path, output: Path, replace: bool = False) -> Path:
         if output.is_relative_to((root / relative).resolve()):
             raise PackageError("The app output must be outside the input resource directories.")
     validate_inputs(root)
+    if texture_pack is not None:
+        texture_pack = validate_texture_pack(texture_pack)
+        if output.is_relative_to(texture_pack):
+            raise PackageError("The app output must be outside the texture pack.")
     validate_output(output, replace)
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         raise PackageError("Packaging requires an Apple Silicon Mac with Xcode command line tools.")
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".melee-package-", dir=output.parent) as temporary:
         staged = Path(temporary) / output.name
-        assemble(root, staged)
+        assemble(root, staged, texture_pack)
         backup = Path(temporary) / "previous.app"
         if output.exists():
             output.rename(backup)
@@ -299,9 +318,10 @@ def main() -> int:
     parser.add_argument("--runtime-dir", type=Path, required=True, help="Built melee-macos-recomp checkout")
     parser.add_argument("--output", type=Path, required=True, help="Local output .app path")
     parser.add_argument("--replace", action="store_true", help="Replace an earlier app made by this tool")
+    parser.add_argument("--texture-pack", type=Path, help="Replacement texture root containing GALE01")
     options = parser.parse_args()
     try:
-        result = package(options.runtime_dir, options.output, options.replace)
+        result = package(options.runtime_dir, options.output, options.replace, options.texture_pack)
     except (PackageError, OSError) as error:
         parser.exit(1, f"Packaging failed: {error}\n")
     print(f"Local app: {result}\nThis app includes your game data. Do not upload it.")
