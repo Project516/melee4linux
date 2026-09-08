@@ -7,7 +7,10 @@ All offsets in returned records are file offsets, not relocated addresses.
 
 import hashlib
 import struct
+from io import BytesIO
 from pathlib import Path
+
+from PIL import Image
 
 from .texture_formats import FORMATS, PALETTED, texture_size
 
@@ -24,6 +27,47 @@ def _u32(data: bytes, offset: int) -> int:
 
 def _span(data: bytes, offset: int, size: int) -> bool:
     return 0 <= offset <= len(data) and 0 <= size <= len(data) - offset
+
+
+def decode_thp_still(data: bytes) -> Image.Image:
+    """Decode a Melee ending still, which stores JPEG entropy without stuffing.
+
+    THPDec.c reads one baseline JPEG scan directly. Standard JPEG decoders
+    need a zero byte after each FF byte in that scan. Header markers and the
+    final end marker must remain unchanged. This is not an MTH movie decoder.
+    """
+    if not data.startswith(b"\xff\xd8") or not data.endswith(b"\xff\xd9"):
+        raise ValueError("THP still needs JPEG start and end markers")
+    offset = 2
+    has_frame = False
+    while offset + 4 <= len(data) - 2:
+        if data[offset] != 0xFF:
+            raise ValueError("Invalid THP still marker")
+        marker = data[offset + 1]
+        length = struct.unpack_from(">H", data, offset + 2)[0]
+        end = offset + 2 + length
+        if length < 2 or end > len(data) - 2:
+            raise ValueError("Truncated THP still header")
+        if marker == 0xC0:
+            if length != 17 or data[offset + 4] != 8 or data[offset + 9] != 3:
+                raise ValueError("THP still needs an 8-bit frame with three components")
+            has_frame = True
+        elif marker == 0xDA:
+            if not has_frame or length != 12 or data[offset + 4] != 3:
+                raise ValueError("THP still needs one scan with three components")
+            if data[end - 3:end] != b"\x00\x3f\x00":
+                raise ValueError("THP still needs a baseline JPEG scan")
+            entropy = data[end:-2].replace(b"\xff", b"\xff\x00")
+            jpeg = data[:end] + entropy + b"\xff\xd9"
+            try:
+                with Image.open(BytesIO(jpeg)) as image:
+                    return image.convert("RGB")
+            except OSError as error:
+                raise ValueError(f"Cannot decode THP still: {error}") from error
+        elif marker not in (0xC4, 0xDB, 0xFE) and not 0xE0 <= marker <= 0xEF:
+            raise ValueError(f"Unsupported THP still marker {marker:#x}")
+        offset = end
+    raise ValueError("THP still has no scan")
 
 
 def _glyphs(start: int, count: int, kind: str, symbol: str) -> list[dict]:

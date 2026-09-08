@@ -2,9 +2,13 @@
 
 import struct
 import unittest
+from io import BytesIO
 from pathlib import Path
+from random import Random
 
-from tools.texture_upscale.extract_special import special_textures
+from PIL import Image
+
+from tools.texture_upscale.extract_special import decode_thp_still, special_textures
 
 
 def sis_archive(glyph_bytes=1024, extra_block=True):
@@ -41,6 +45,35 @@ def tpl_image(paletted=False):
 
 
 class SpecialTextureTests(unittest.TestCase):
+    def test_thp_still_restores_entropy_without_changing_header_markers(self):
+        # Build a standard JPEG, remove its entropy stuffing as Melee does,
+        # then require the same pixels from both decoding paths.
+        image = Image.frombytes("RGB", (64, 64), Random(42).randbytes(64 * 64 * 3))
+        encoded = BytesIO()
+        image.save(encoded, format="JPEG", quality=92, subsampling=2)
+        jpeg = encoded.getvalue()
+        scan = jpeg.index(b"\xff\xda")
+        start = scan + 2 + struct.unpack_from(">H", jpeg, scan + 2)[0]
+        self.assertIn(b"\xff\x00", jpeg[start:-2])
+        thp = jpeg[:start] + jpeg[start:-2].replace(b"\xff\x00", b"\xff") + jpeg[-2:]
+        actual = decode_thp_still(thp)
+        expected = Image.open(BytesIO(jpeg)).convert("RGB")
+        self.assertEqual(actual.size, (64, 64))
+        self.assertEqual(actual.mode, "RGB")
+        self.assertEqual(actual.tobytes(), expected.tobytes())
+
+    def test_thp_still_rejects_truncated_and_unsupported_headers(self):
+        cases = [
+            b"\xff\xd8\xff\xfe\xff\xff\xff\xd9",
+            b"\xff\xd8\xff\xc2\x00\x02\xff\xd9",
+            b"\xff\xd8\xff\xda\x00\x02\xff\xd9",
+            b"\xff\xd8\xff\xd9",
+            b"not a JPEG",
+        ]
+        for data in cases:
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                decode_thp_still(data)
+
     def test_sis_stops_at_next_relocated_block(self):
         images, warnings = special_textures(Path("SdTest.dat"), sis_archive())
         self.assertEqual(warnings, [])
