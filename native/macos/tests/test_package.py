@@ -109,6 +109,50 @@ Load command 3
         self.assertEqual(info.dependencies, ("/build path/libother.dylib",))
         self.assertEqual(info.rpaths, ("@loader_path/../lib",))
 
+    def test_parse_uses_deployment_version_instead_of_sdk_or_tool_version(self):
+        info = package.parse_load_commands("""library:
+Load command 1
+      cmd LC_BUILD_VERSION
+ platform 1
+    minos 26.0.0
+      sdk 26.5
+   ntools 1
+     tool 3
+  version 1267.0
+""")
+        self.assertEqual(info.minimum_macos, (26, 0, 0))
+
+    def test_parse_legacy_macos_version(self):
+        info = package.parse_load_commands("""library:
+Load command 1
+      cmd LC_VERSION_MIN_MACOSX
+  cmdsize 16
+  version 10.14.6
+      sdk 11.0
+""")
+        self.assertEqual(info.minimum_macos, (10, 14, 6))
+
+    def test_minimum_version_includes_newer_library_and_compares_numbers(self):
+        runtime = self.root / "runtime"
+        library = self.root / "libdependency.dylib"
+        outputs = {
+            runtime: "Load command 1\n cmd LC_BUILD_VERSION\n platform 1\n minos 14.9\n",
+            library: "Load command 1\n cmd LC_BUILD_VERSION\n platform macos\n minos 14.10.2\n",
+        }
+        with patch.object(package, "run", side_effect=lambda *args: outputs[args[-1]]) as command:
+            self.assertEqual(package.minimum_system_version([runtime, library]), "14.10.2")
+            self.assertEqual(command.call_count, 2)
+
+    def test_minimum_version_keeps_launcher_floor(self):
+        commands = "Load command 1\n cmd LC_VERSION_MIN_MACOSX\n version 10.15\n sdk 26.5\n"
+        with patch.object(package, "run", return_value=commands):
+            self.assertEqual(package.minimum_system_version([self.root / "legacy.dylib"]), "14.0")
+
+    def test_unknown_binary_requirement_is_an_error(self):
+        with patch.object(package, "run", return_value="no deployment command"):
+            with self.assertRaisesRegex(package.PackageError, "No minimum macOS version"):
+                package.minimum_system_version([self.root / "unknown.dylib"])
+
     @unittest.skipUnless(platform.system() == "Darwin" and shutil.which("xcrun"), "Needs Apple tools")
     def test_recursive_libraries_run_after_sources_are_removed_and_bundle_moves(self):
         source = self.root / "original build"

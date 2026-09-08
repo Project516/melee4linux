@@ -81,27 +81,61 @@ class MachOInfo:
     dependencies: tuple[str, ...]
     rpaths: tuple[str, ...]
     install_id: str | None
+    minimum_macos: tuple[int, int, int] | None
+
+
+def parse_version(value: str) -> tuple[int, int, int]:
+    if re.fullmatch(r"\d+(?:\.\d+){0,2}", value) is None:
+        raise PackageError(f"Invalid minimum macOS version in a binary: {value}")
+    components = [int(part) for part in value.split(".")]
+    components += [0] * (3 - len(components))
+    return components[0], components[1], components[2]
 
 
 def parse_load_commands(text: str) -> MachOInfo:
     dependencies = []
     rpaths = []
     install_id = None
+    minimum_macos = None
     for block in re.split(r"Load command \d+\n", text)[1:]:
         command = re.search(r"^\s*cmd (\S+)$", block, re.MULTILINE)
         if command is None:
             continue
+        kind = command.group(1)
+        version_field = None
+        if kind == "LC_VERSION_MIN_MACOSX":
+            version_field = "version"
+        elif kind == "LC_BUILD_VERSION" and re.search(
+                r"^\s*platform (?:1|macos)\s*$", block, re.MULTILINE | re.IGNORECASE):
+            version_field = "minos"
+        if version_field is not None:
+            version = re.search(rf"^\s*{version_field} (\S+)\s*$", block, re.MULTILINE)
+            if version is None:
+                raise PackageError(f"Missing {version_field} in {kind}.")
+            parsed = parse_version(version.group(1))
+            minimum_macos = max(minimum_macos or parsed, parsed)
         value = re.search(r"^\s*(?:name|path) (.+) \(offset \d+\)$", block, re.MULTILINE)
         if value is None:
             continue
-        kind = command.group(1)
         if kind == "LC_RPATH":
             rpaths.append(value.group(1))
         elif kind == "LC_ID_DYLIB":
             install_id = value.group(1)
         elif kind in ("LC_LOAD_DYLIB", "LC_LOAD_WEAK_DYLIB", "LC_REEXPORT_DYLIB", "LC_LOAD_UPWARD_DYLIB"):
             dependencies.append(value.group(1))
-    return MachOInfo(tuple(dependencies), tuple(rpaths), install_id)
+    return MachOInfo(tuple(dependencies), tuple(rpaths), install_id, minimum_macos)
+
+
+def minimum_system_version(binaries: list[Path]) -> str:
+    """Use the strongest deployment requirement, including copied libraries."""
+    minimum = (14, 0, 0)
+    for binary in binaries:
+        info = parse_load_commands(run("xcrun", "otool", "-l", binary))
+        if info.minimum_macos is None:
+            raise PackageError(f"No minimum macOS version is recorded in {binary}.")
+        minimum = max(minimum, info.minimum_macos)
+    parts = minimum if minimum[2] else minimum[:2]
+    return ".".join(str(part) for part in parts)
 
 
 def expand_path(value: str, loader: Path, executable: Path) -> Path | None:
@@ -198,6 +232,8 @@ def assemble(root: Path, app: Path) -> None:
     run("xcrun", "clang", "-O2", "-Wall", "-Wextra", "-Werror", "-arch", "arm64",
         "-mmacosx-version-min=14.0", "-fobjc-arc", "-framework", "AppKit",
         HERE / "launcher.m", "-o", macos / "Melee")
+    binaries = bundle_libraries([(runtime_source, runtime), (module_source, module)], frameworks)
+    binaries.append(macos / "Melee")
     info = {
         "CFBundleExecutable": "Melee",
         "CFBundleIdentifier": APP_ID,
@@ -207,7 +243,7 @@ def assemble(root: Path, app: Path) -> None:
         "CFBundleShortVersionString": "0.1",
         "CFBundleVersion": "1",
         "LSApplicationCategoryType": "public.app-category.games",
-        "LSMinimumSystemVersion": "14.0",
+        "LSMinimumSystemVersion": minimum_system_version(binaries),
         "NSHighResolutionCapable": True,
         "NSHumanReadableCopyright": "Automated experimental fork. Runtime credits are in Contents/Resources/Licenses.",
     }
@@ -217,8 +253,7 @@ def assemble(root: Path, app: Path) -> None:
         info["CFBundleIconFile"] = "AppIcon.icns"
     with (contents / "Info.plist").open("wb") as output:
         plistlib.dump(info, output)
-    binaries = bundle_libraries([(runtime_source, runtime), (module_source, module)], frameworks)
-    for binary in binaries + [macos / "Melee"]:
+    for binary in binaries:
         run("/usr/bin/codesign", "--force", "--sign", "-", binary)
     run("/usr/bin/codesign", "--force", "--sign", "-", app)
     run("/usr/bin/codesign", "--verify", "--deep", "--strict", app)
