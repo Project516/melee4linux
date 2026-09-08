@@ -77,6 +77,29 @@ class TextureAnimationTests(unittest.TestCase):
         data = _archive(bytes([stream[0] + 1]) + stream[1:], stream)
         self.assertIsNone(animation_pairs(data, 16, 2, 2))
 
+    def test_terminal_spline_repeat_keeps_constant_palette_pairing(self):
+        prefix = _stream([(0, 1), (1, 1), (2, 1)])
+        palette = _stream([(0, 1), (1, 1), (2, 1), (2, None)])
+        for terminal in (b"\x03\x02", b"\x03\x02\x00"):
+            with self.subTest(terminal=terminal):
+                data = _archive(prefix + terminal, palette)
+                self.assertEqual(animation_pairs(data, 16, 3, 3),
+                                 [(0, 0), (1, 1), (2, 2)])
+
+    def test_spline_extension_rejects_changes_waits_and_more_keys(self):
+        prefix = _stream([(0, 1), (1, 1), (2, 1)])
+        palette = _stream([(0, 1), (1, 1), (2, 1), (2, None)])
+        for terminal in (
+            b"\x03\x01\x00",  # Different final value.
+            b"\x03\x02\x01",  # Nonzero final wait.
+            b"\x03\x02\x00\x01\x02",  # Another key after the spline.
+            b"\x13\x02\x00\x02",  # More than one spline key in the pack.
+        ):
+            with self.subTest(terminal=terminal):
+                self.assertIsNone(animation_pairs(
+                    _archive(prefix + terminal, palette), 16, 3, 3
+                ))
+
     def test_bad_bounds_cycles_and_indices_fail_closed(self):
         stream = _stream([(0, 1), (1, None)])
         data = _archive(stream, stream)

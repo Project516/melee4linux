@@ -1,8 +1,8 @@
 """Resolve HSD texture animation indices without inventing palette variants.
 
 The descriptor layout and stream encoding come from baselib/tobj.h, fobj.h
-and fobj.c. Only constant tracks are accepted. Other interpolation modes,
-missing index tracks and malformed data return None for a caller fallback.
+and fobj.c. Constant tracks and a repeated terminal SPL0 key are accepted.
+Other interpolation modes, missing tracks and malformed data return None.
 """
 
 from bisect import bisect_right
@@ -65,9 +65,18 @@ def _constant_keys(data: bytes, offset: int, count: int) -> list[tuple[int, int]
     time = -int(start)
     remaining = 0
     keys = []
+    previous_value = None
     while stream.offset < length:
         if not remaining:
             header = stream.byte()
+            if header == 3 and len(keys) >= 2:  # One terminal HSD_A_OP_SPL0 key.
+                value = stream.number(encoding)
+                wait = stream.integer() if stream.offset < length else 0
+                if value == previous_value and wait == 0 and stream.offset == length:
+                    # FObjLoadData keeps the prior CON in op_intrp. End of
+                    # stream returns before the terminal SPL0 can replace it.
+                    return keys
+                raise _Unsupported("Spline key is not a terminal constant repeat")
             if header & 15 != 1:  # HSD_A_OP_CON
                 raise _Unsupported("Texture index track is not constant")
             packed = (header >> 4) & 7
@@ -81,6 +90,7 @@ def _constant_keys(data: bytes, offset: int, count: int) -> list[tuple[int, int]
         if not 0 <= index < count:
             raise _Unsupported("Animation index is outside its table")
         keys.append((time, index))
+        previous_value = value
         remaining -= 1
         if stream.offset == length:
             break  # HSD permits the final key to omit its wait.
