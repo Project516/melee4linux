@@ -4,7 +4,8 @@
 Its `HSD_AObj` stores the current frame, playback rate, loop range, flags, and
 a linked chain of `HSD_FObj` tracks. Each track in
 [`fobj.c`](../../src/sysdolphin/baselib/fobj.c) decodes values and sends them
-to an object update callback.
+to an object update callback. The [track guide](animation-tracks.md) explains
+stream bytes, packed counts, wait times, and value decoding.
 
 ## Request, advance, and stop
 
