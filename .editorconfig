@@ -35,5 +35,9 @@ indent_style = tab
 [*.md]
 indent_style = unset
 
+[/tools/texture_upscale/MODEL_LICENSES.txt]
+# Preserve the upstream license text.
+indent_style = unset
+
 [*.sha1]
 insert_final_newline = false

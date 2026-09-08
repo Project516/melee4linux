@@ -62,23 +62,23 @@ class FrameTimingTests(unittest.TestCase):
 
 int main()
 {
-  for (const auto cpu : {486000000u, 729000000u})
-  {
+    for (const auto cpu : {486000000u, 729000000u})
+    {
     for (const auto fps : {60u, 120u})
     {
-      for (const auto lines : {1050u, 1052u, 1250u, 1049u})
-      {
+        for (const auto lines : {1050u, 1052u, 1250u, 1049u})
+        {
         std::uint64_t total = 0;
         std::uint32_t shortest = cpu;
         std::uint32_t longest = 0;
         for (std::uint32_t line = 0; line < lines; ++line)
         {
-          const auto ticks = Common::FixedFrameTickOffset(line + 1, lines, fps, cpu) -
-                             Common::FixedFrameTickOffset(line, lines, fps, cpu);
-          assert(ticks > 0);
-          shortest = std::min(shortest, ticks);
-          longest = std::max(longest, ticks);
-          total += ticks;
+            const auto ticks = Common::FixedFrameTickOffset(line + 1, lines, fps, cpu) -
+                                Common::FixedFrameTickOffset(line, lines, fps, cpu);
+            assert(ticks > 0);
+            shortest = std::min(shortest, ticks);
+            longest = std::max(longest, ticks);
+            total += ticks;
         }
         assert(longest - shortest <= 1);
         assert(total == cpu * 2u / fps);
@@ -86,12 +86,12 @@ int main()
         assert(total * (fps * 60u / 2u) == std::uint64_t(cpu) * 60u);
         // Both fields together match one original simulation update at 120 Hz.
         if (fps == 120)
-          assert(total == cpu / 60);
-      }
+            assert(total == cpu / 60);
+        }
     }
-  }
-  assert(Common::FixedFrameTickOffset(1, 0, 120, 486000000) == 0);
-  assert(Common::FixedFrameTickOffset(1, 1050, 0, 486000000) == 0);
+    }
+    assert(Common::FixedFrameTickOffset(1, 0, 120, 486000000) == 0);
+    assert(Common::FixedFrameTickOffset(1, 1050, 0, 486000000) == 0);
 }
 ''')
 
@@ -103,14 +103,14 @@ int main()
 
 int main()
 {
-  using Clock = std::chrono::steady_clock;
-  Common::SleepUntilMacFrame(Clock::now() - std::chrono::seconds{1});
-  for (const auto wait : {0, 20, 200, 1000, 8333, 16667})
-  {
+    using Clock = std::chrono::steady_clock;
+    Common::SleepUntilMacFrame(Clock::now() - std::chrono::seconds{1});
+    for (const auto wait : {0, 20, 200, 1000, 8333, 16667})
+    {
     const auto target = Clock::now() + std::chrono::microseconds{wait};
     Common::SleepUntilMacFrame(target);
     assert(Clock::now() >= target);
-  }
+    }
 }
 ''')
 
@@ -123,12 +123,12 @@ int main()
 
 static int rejected = 0;
 static int RejectTimer(int, const kevent64_s*, int, kevent64_s* result, int,
-                       unsigned int, const timespec*)
+                        unsigned int, const timespec*)
 {
-  ++rejected;
-  result->flags = EV_ERROR;
-  result->data = EINVAL;
-  return 1;
+    ++rejected;
+    result->flags = EV_ERROR;
+    result->data = EINVAL;
+    return 1;
 }
 #define kevent64 RejectTimer
 #include "Common/MacFrameTimer.h"
@@ -136,13 +136,13 @@ static int RejectTimer(int, const kevent64_s*, int, kevent64_s* result, int,
 
 int main()
 {
-  using Clock = std::chrono::steady_clock;
-  const auto target = Clock::now() + std::chrono::milliseconds{2};
-  Common::SleepUntilMacFrame(target);
-  assert(Clock::now() >= target);
-  assert(rejected > 0);
-  // A rejected timer must fall back to sleeping, not retry in a busy loop.
-  assert(rejected < 10);
+    using Clock = std::chrono::steady_clock;
+    const auto target = Clock::now() + std::chrono::milliseconds{2};
+    Common::SleepUntilMacFrame(target);
+    assert(Clock::now() >= target);
+    assert(rejected > 0);
+    // A rejected timer must fall back to sleeping, not retry in a busy loop.
+    assert(rejected < 10);
 }
 ''')
 

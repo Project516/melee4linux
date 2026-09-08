@@ -5,9 +5,9 @@ and fobj.c. Constant tracks and a repeated terminal SPL0 key are accepted.
 Other interpolation modes, missing tracks and malformed data return None.
 """
 
-from bisect import bisect_right
 import math
 import struct
+from bisect import bisect_right
 
 
 class _Unsupported(ValueError):
@@ -61,7 +61,7 @@ def _constant_keys(data: bytes, offset: int, count: int) -> list[tuple[int, int]
         raise _Unsupported("Unknown initial animation index")
     if not length or stream_at + length > len(data):
         raise _Unsupported("Invalid animation stream bounds")
-    stream = _Stream(data[stream_at:stream_at + length])
+    stream = _Stream(data[stream_at : stream_at + length])
     time = -int(start)
     remaining = 0
     keys = []
@@ -143,12 +143,14 @@ def animation_pairs(
         image_times = [time for time, _ in image_keys]
         palette_times = [time for time, _ in palette_keys]
         times = {0, *(time for time in image_times + palette_times if time >= 0)}
-        return sorted({
-            (
-                image_keys[bisect_right(image_times, time) - 1][1],
-                palette_keys[bisect_right(palette_times, time) - 1][1],
-            )
-            for time in times
-        })
+        return sorted(
+            {
+                (
+                    image_keys[bisect_right(image_times, time) - 1][1],
+                    palette_keys[bisect_right(palette_times, time) - 1][1],
+                )
+                for time in times
+            }
+        )
     except (struct.error, _Unsupported):
         return None

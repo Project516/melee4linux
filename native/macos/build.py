@@ -87,6 +87,7 @@ def main():
     parser.add_argument("--jobs", type=int, default=min(os.cpu_count() or 8, 12))
     parser.add_argument("--runtime-dir", type=Path, default=ROOT / "build/native/recomp")
     parser.add_argument("--output", type=Path, default=ROOT / "build/native/Melee for Mac.app")
+    parser.add_argument("--texture-pack", type=Path, help="Replacement texture root containing GALE01")
     args = parser.parse_args()
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         parser.error("This build requires an Apple Silicon Mac.")
@@ -123,6 +124,7 @@ def main():
         (runtime, HERE / "patches/fast-load.patch"),
         (runtime, HERE / "patches/branding.patch"),
         (runtime, HERE / "patches/fluidity-settings.patch"),
+        (runtime, HERE / "patches/texture-pack.patch"),
         (runtime / "upstream/ModernGekko-Template/lib/ModernGekko", HERE / "patches/runtime-sdl.patch"),
         (runtime / "upstream/ModernGekko-Template/lib/ModernGekko", HERE / "patches/runtime-cache.patch"),
         (runtime / "upstream/ModernGekko-Template/lib/ModernGekko", HERE / "patches/startup-inspection.patch"),
@@ -137,6 +139,8 @@ def main():
         (dolphin, HERE / "patches/fluid-render.patch"),
         (dolphin, HERE / "patches/benchmark-state.patch"),
         (dolphin, HERE / "patches/game-refresh.patch"),
+        (dolphin, HERE / "patches/texture-cache.patch"),
+        (dolphin, HERE / "patches/ending-stills.patch"),
     ]
     # Restore only our known patches before the upstream script checks its patches.
     # This keeps repeat builds safe when patch hunks touch the same source file.
@@ -160,11 +164,14 @@ def main():
         shutil.copy2(HERE / "input" / name, frontend)
     shutil.copy2(HERE / "render/MeleeMetalFrameLog.h", dolphin / "Source/Core/VideoBackends/Metal")
     shutil.copy2(HERE / "render/MeleeRenderConfig.h", dolphin / "Source/Core/VideoCommon")
+    shutil.copy2(HERE / "textures/MeleeTexturePack.h", dolphin / "Source/Core/VideoCommon")
+    shutil.copy2(HERE / "textures/MeleeEndingStills.h", dolphin / "Source/Core/VideoCommon")
     # Reapply after generation. The verified DOL and extracted disc remain unchanged.
     run(sys.executable, HERE / "high_refresh.py", "--generated", runtime / "private/recompiled/generated")
     run("cmake", "--build", runtime / "build/game", "-j", args.jobs)
     run("cmake", "--build", runtime / "build/runtime", "--target", "moderngekko-run", "-j", args.jobs)
-    run(sys.executable, HERE / "package.py", "--runtime-dir", runtime, "--output", args.output, "--replace")
+    texture_options = ["--texture-pack", args.texture_pack] if args.texture_pack else []
+    run(sys.executable, HERE / "package.py", "--runtime-dir", runtime, "--output", args.output, "--replace", *texture_options)
 
 
 if __name__ == "__main__":

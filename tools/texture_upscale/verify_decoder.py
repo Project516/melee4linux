@@ -8,13 +8,13 @@ All generated files stay in the chosen output directory.
 """
 
 import argparse
-from collections import Counter
 import hashlib
 import json
-from pathlib import Path
 import random
 import shlex
 import subprocess
+from collections import Counter
+from pathlib import Path
 
 from PIL import Image
 
@@ -32,51 +32,51 @@ _ORACLE = r"""
 #include "Common/MsgHandler.h"
 
 void _TexDecoder_DecodeImpl(u32*, const u8*, int, int, TextureFormat,
-                           const u8*, TLUTFormat);
+                            const u8*, TLUTFormat);
 
 namespace Common {
 bool MsgAlertFmtImpl(bool, MsgType, Log::LogType, const char*, int,
-                     fmt::string_view, const fmt::format_args&) {
-  std::abort();
+                        fmt::string_view, const fmt::format_args&) {
+    std::abort();
 }
 }
 
 namespace Common::Log {
 void GenericLogFmtImpl(LogLevel, LogType, const char*, int,
-                       fmt::string_view message, const fmt::format_args&) {
-  std::cerr << "Dolphin error: " << std::string(message.data(), message.size())
+                        fmt::string_view message, const fmt::format_args&) {
+    std::cerr << "Dolphin error: " << std::string(message.data(), message.size())
             << std::endl;
-  std::abort();
+    std::abort();
 }
 }
 
 std::vector<u8> Read(const char* path) {
-  std::ifstream file(path, std::ios::binary);
-  return {std::istreambuf_iterator<char>(file), {}};
+    std::ifstream file(path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(file), {}};
 }
 
 int main(int argc, char** argv) {
-  if (argc != 9) return 2;
-  auto pixels = Read(argv[1]);
-  auto palette = Read(argv[2]);
-  const int width = std::stoi(argv[3]), height = std::stoi(argv[4]);
-  const auto format = static_cast<TextureFormat>(std::stoi(argv[5]));
-  const auto palette_format = static_cast<TLUTFormat>(std::stoi(argv[6]));
-  const auto mips = std::stoi(argv[7]) ? std::optional<u32>(1) : std::nullopt;
-  TextureInfo info(0, pixels, palette, 0, format, palette_format,
-                   width, height, false, {}, {}, mips);
-  if (!info.IsDataValid()) return 3;
-  std::cout << info.CalculateTextureName().GetFullName() << std::endl;
-  const auto expanded_width = info.GetExpandedWidth();
-  std::vector<u32> output(expanded_width * info.GetExpandedHeight());
-  _TexDecoder_DecodeImpl(output.data(), pixels.data(), expanded_width,
-                         info.GetExpandedHeight(), format,
-                         palette.data(), palette_format);
-  std::ofstream file(argv[8], std::ios::binary);
-  for (int y = 0; y < height; y++)
+    if (argc != 9) return 2;
+    auto pixels = Read(argv[1]);
+    auto palette = Read(argv[2]);
+    const int width = std::stoi(argv[3]), height = std::stoi(argv[4]);
+    const auto format = static_cast<TextureFormat>(std::stoi(argv[5]));
+    const auto palette_format = static_cast<TLUTFormat>(std::stoi(argv[6]));
+    const auto mips = std::stoi(argv[7]) ? std::optional<u32>(1) : std::nullopt;
+    TextureInfo info(0, pixels, palette, 0, format, palette_format,
+                    width, height, false, {}, {}, mips);
+    if (!info.IsDataValid()) return 3;
+    std::cout << info.CalculateTextureName().GetFullName() << std::endl;
+    const auto expanded_width = info.GetExpandedWidth();
+    std::vector<u32> output(expanded_width * info.GetExpandedHeight());
+    _TexDecoder_DecodeImpl(output.data(), pixels.data(), expanded_width,
+                            info.GetExpandedHeight(), format,
+                            palette.data(), palette_format);
+    std::ofstream file(argv[8], std::ios::binary);
+    for (int y = 0; y < height; y++)
     file.write(reinterpret_cast<char*>(output.data() + y * expanded_width),
-               width * 4);
-  return 0;
+                width * 4);
+    return 0;
 }
 """
 
@@ -135,8 +135,12 @@ def select_textures(textures: list[dict], count: int, seed: int) -> list[dict]:
     for predicate in (
         lambda item: item["mipmap"],
         lambda item: item["width"] % 8 != 0,
-        lambda item: item["format"] == 8
-        and any(source.get("palette_entries", 16) < 16 for source in item["sources"]),
+        lambda item: (
+            item["format"] == 8
+            and any(
+                source.get("palette_entries", 16) < 16 for source in item["sources"]
+            )
+        ),
     ):
         extra = next((item for item in textures if predicate(item)), None)
         if extra is not None and extra not in selected:
@@ -184,9 +188,13 @@ def verify(
         result_path = output / "result.rgba"
         palette_path.write_bytes(palette)
         levels = [
-            dict(
-                level=0, width=width, height=height, path=item["path"], encoded=encoded
-            )
+            {
+                "level": 0,
+                "width": width,
+                "height": height,
+                "path": item["path"],
+                "encoded": encoded,
+            }
         ]
         for mip in item.get("mip_levels", []):
             levels.append(
@@ -231,25 +239,25 @@ def verify(
                     f"Dolphin pixels differ for {item['name']} mip {level['level']}: {differing} bytes"
                 )
             checks.append(
-                dict(
-                    name=item["name"],
-                    level=level["level"],
-                    format=fmt,
-                    rgba_sha256=hashlib.sha256(actual).hexdigest(),
-                )
+                {
+                    "name": item["name"],
+                    "level": level["level"],
+                    "format": fmt,
+                    "rgba_sha256": hashlib.sha256(actual).hexdigest(),
+                }
             )
-    report = dict(
-        schema_version=1,
-        passed=True,
-        seed=seed,
-        random_count=count,
-        textures=len(selected),
-        mip_levels=sum(check["level"] != 0 for check in checks),
-        formats=dict(Counter(item["format_name"] for item in selected)),
-        oracle_objects=hashes,
-        manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
-        checks=checks,
-    )
+    report = {
+        "schema_version": 1,
+        "passed": True,
+        "seed": seed,
+        "random_count": count,
+        "textures": len(selected),
+        "mip_levels": sum(check["level"] != 0 for check in checks),
+        "formats": dict(Counter(item["format_name"] for item in selected)),
+        "oracle_objects": hashes,
+        "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        "checks": checks,
+    }
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     return report
 

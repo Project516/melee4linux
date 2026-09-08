@@ -139,8 +139,8 @@ def measure(args):
                 if process.poll() is not None or time.monotonic() > deadline:
                     raise RuntimeError("The match did not start. Check runtime.log.")
                 time.sleep(0.1)
-            print("Match started. Warming shaders for 5 seconds.", flush=True)
-            time.sleep(5)
+            print(f"Match started. Warming shaders for {args.warmup:g} seconds.", flush=True)
+            time.sleep(args.warmup)
             command(automation, process, "load_state", path=state)
             scene = output / "scene.bin"
             command(automation, process, "read_memory", address="0x80479d30", size=4, path=scene)
@@ -204,11 +204,14 @@ def main():
     parser.add_argument("--fps", type=int, choices=(60, 120), default=120)
     parser.add_argument("--scale", type=int, choices=range(9), default=4)
     parser.add_argument("--seconds", type=float, default=30)
+    parser.add_argument("--warmup", type=float, default=5, help="Warmup time before restoring the measured state")
     parser.add_argument("--vsync", action="store_true")
     parser.add_argument("--original-queues", action="store_true", help="Compare the original input and Metal queues")
     args = parser.parse_args()
     if not math.isfinite(args.seconds) or not 2 <= args.seconds <= 300:
         parser.error("--seconds must be between 2 and 300.")
+    if not math.isfinite(args.warmup) or not 0 <= args.warmup <= 60:
+        parser.error("--warmup must be between 0 and 60.")
     try:
         measure(args)
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:

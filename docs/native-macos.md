@@ -48,6 +48,12 @@ open "build/native/Melee for Mac.app"
 
 Select Play. Escape opens the app menu. Command-comma opens Settings.
 
+The `native/texture-upscale` branch can load a complete 4x texture pack.
+See the [texture build guide](../tools/texture_upscale/README.md) for automatic
+generation or the private generated assets. Pass `--texture-pack` to bundle
+the pack in the app. Settings, Textures selects the original or upscaled
+artwork on the next launch.
+
 Older builds were named `Melee.app` or displayed as "Melee Native". The bundle
 ID and `Application Support/t3.melee.native` save folder remain the same.
 Use `git pull` on `master` and repeat the build command to update. GitHub

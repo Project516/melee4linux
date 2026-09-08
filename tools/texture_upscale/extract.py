@@ -7,14 +7,14 @@ Original images and manifests belong in an ignored build directory.
 """
 
 import argparse
-from collections import Counter, defaultdict
-from dataclasses import dataclass
 import hashlib
 import json
 import math
 import os
-from pathlib import Path
 import struct
+from collections import Counter, defaultdict
+from dataclasses import dataclass
+from pathlib import Path
 
 from .decode import decode_texture
 from .extract_animation import animation_pairs
@@ -111,32 +111,32 @@ def image_descriptors(archive: Archive) -> dict[int, dict]:
         # Every static descriptor has a pointer owner or an exported symbol.
         if offset not in archive.references and offset not in archive.symbols:
             continue
-        found[offset] = dict(
-            image_offset=image,
-            descriptor_offset=offset,
-            width=width,
-            height=height,
-            format=fmt,
-            mipmap=bool(mipmap),
-            max_lod=high,
-            kind="hsd_image",
-            wrap_s=None,
-            wrap_t=None,
-        )
+        found[offset] = {
+            "image_offset": image,
+            "descriptor_offset": offset,
+            "width": width,
+            "height": height,
+            "format": fmt,
+            "mipmap": bool(mipmap),
+            "max_lod": high,
+            "kind": "hsd_image",
+            "wrap_s": None,
+            "wrap_t": None,
+        }
     return found
 
 
 def palette_descriptor(archive: Archive, offset: int) -> dict | None:
     if offset not in archive.relocations or offset + 16 > len(archive.data):
         return None
-    image, fmt, name, entries = struct.unpack_from(">IIIH", archive.data, offset)
+    image, fmt, _name, entries = struct.unpack_from(">IIIH", archive.data, offset)
     if (
         fmt not in (0, 1, 2)
         or not 1 <= entries <= 16384
         or image + entries * 2 > len(archive.data)
     ):
         return None
-    return dict(palette_offset=image, palette_format=fmt, palette_entries=entries)
+    return {"palette_offset": image, "palette_format": fmt, "palette_entries": entries}
 
 
 def hsd_textures(archive: Archive) -> tuple[list[dict], list[str]]:
@@ -310,11 +310,11 @@ def particle_textures(archive: Archive) -> tuple[list[dict], list[str]]:
                     palette_rel = u32(data, group + 24 + (num + i) * 4)
                     if palette_rel:
                         variants.append(
-                            dict(
-                                palette_offset=base + palette_rel,
-                                palette_entries={8: 16, 9: 256, 10: 16384}[fmt],
-                                palette_format=palette_format,
-                            )
+                            {
+                                "palette_offset": base + palette_rel,
+                                "palette_entries": {8: 16, 9: 256, 10: 16384}[fmt],
+                                "palette_format": palette_format,
+                            }
                         )
                 if fmt in PALETTED and not variants:
                     warnings.append(
@@ -324,20 +324,20 @@ def particle_textures(archive: Archive) -> tuple[list[dict], list[str]]:
                     image_rel = u32(data, group + 24 + i * 4)
                     if not image_rel:
                         continue
-                    item = dict(
-                        image_offset=base + image_rel,
-                        descriptor_offset=group,
-                        width=width,
-                        height=height,
-                        format=fmt,
-                        mipmap=False,
-                        kind="particle",
-                        group=group_index,
-                        frame=i,
-                        wrap_s=None,
-                        wrap_t=None,
-                        symbols=[symbol],
-                    )
+                    item = {
+                        "image_offset": base + image_rel,
+                        "descriptor_offset": group,
+                        "width": width,
+                        "height": height,
+                        "format": fmt,
+                        "mipmap": False,
+                        "kind": "particle",
+                        "group": group_index,
+                        "frame": i,
+                        "wrap_s": None,
+                        "wrap_t": None,
+                        "symbols": [symbol],
+                    }
                     (
                         results.extend(item | palette for palette in variants)
                         if variants
@@ -401,17 +401,17 @@ def extract_disc(
             )
             path = f"originals/{name}.png"
             image.save(output / path, compress_level=4)
-            entries[name] = dict(
-                name=name,
-                path=path,
-                width=width,
-                height=height,
-                format=fmt,
-                format_name=FORMATS[fmt],
-                mipmap=item.get("mipmap", False),
-                rgba_sha256=hashlib.sha256(image.tobytes()).hexdigest(),
-                sources=[],
-            )
+            entries[name] = {
+                "name": name,
+                "path": path,
+                "width": width,
+                "height": height,
+                "format": fmt,
+                "format_name": FORMATS[fmt],
+                "mipmap": item.get("mipmap", False),
+                "rgba_sha256": hashlib.sha256(image.tobytes()).hexdigest(),
+                "sources": [],
+            }
         entries[name]["sources"].append(source)
         if (
             item.get("mipmap")
@@ -441,14 +441,14 @@ def extract_disc(
                 (output / "original_mips").mkdir(exist_ok=True)
                 mip_image.save(output / mip_path, compress_level=4)
                 levels.append(
-                    dict(
-                        level=level,
-                        width=mip_width,
-                        height=mip_height,
-                        path=mip_path,
-                        encoded_offset=mip_start + base,
-                        encoded_size=mip_size,
-                    )
+                    {
+                        "level": level,
+                        "width": mip_width,
+                        "height": mip_height,
+                        "path": mip_path,
+                        "encoded_offset": mip_start + base,
+                        "encoded_size": mip_size,
+                    }
                 )
                 mip_start += mip_size
             entries[name]["mip_levels"] = levels
@@ -462,13 +462,13 @@ def extract_disc(
             else "sys/" + path.name
         )
         data = path.read_bytes()
-        report = dict(
-            file=file,
-            size=len(data),
-            sha256=hashlib.sha256(data).hexdigest(),
-            textures=0,
-            warnings=[],
-        )
+        report = {
+            "file": file,
+            "size": len(data),
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "textures": 0,
+            "warnings": [],
+        }
         descriptors = []
         try:
             if path.suffix.lower() in (".dat", ".usd"):
@@ -531,18 +531,18 @@ def extract_disc(
                 f"Extracted {index + 1}/{len(paths)} files, {len(entries)} unique textures",
                 flush=True,
             )
-    manifest = dict(
-        schema_version=1,
-        textures=sorted(entries.values(), key=lambda item: item["name"]),
-        files=reports,
-        warnings=warnings,
-        summary=dict(
-            unique_textures=len(entries),
-            texture_references=sum(source_counts.values()),
-            source_kinds=dict(source_counts),
-            file_statuses=dict(Counter(r["status"] for r in reports)),
-        ),
-    )
+    manifest = {
+        "schema_version": 1,
+        "textures": sorted(entries.values(), key=lambda item: item["name"]),
+        "files": reports,
+        "warnings": warnings,
+        "summary": {
+            "unique_textures": len(entries),
+            "texture_references": sum(source_counts.values()),
+            "source_kinds": dict(source_counts),
+            "file_statuses": dict(Counter(r["status"] for r in reports)),
+        },
+    }
     temporary = output / "manifest.json.tmp"
     temporary.write_text(json.dumps(manifest, indent=2) + "\n")
     os.replace(temporary, output / "manifest.json")

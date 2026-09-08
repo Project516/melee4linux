@@ -14,7 +14,6 @@ from PIL import Image
 
 from .texture_formats import FORMATS, PALETTED, texture_size
 
-
 _US_102_SHA1 = "08e0bf20134dfcb260699671004527b2d6bb1a45"
 _FONT_ADDRESS = 0x8040CD40
 _FONT_GLYPHS = 287
@@ -55,7 +54,7 @@ def decode_thp_still(data: bytes) -> Image.Image:
         elif marker == 0xDA:
             if not has_frame or length != 12 or data[offset + 4] != 3:
                 raise ValueError("THP still needs one scan with three components")
-            if data[end - 3:end] != b"\x00\x3f\x00":
+            if data[end - 3 : end] != b"\x00\x3f\x00":
                 raise ValueError("THP still needs a baseline JPEG scan")
             entropy = data[end:-2].replace(b"\xff", b"\xff\x00")
             jpeg = data[:end] + entropy + b"\xff\xd9"
@@ -132,7 +131,9 @@ def _sis_textures(data: bytes) -> tuple[list[dict], list[str]]:
         if end is None or start % 32 or (end - start) % _GLYPH_BYTES:
             warnings.append(f"{name}: invalid glyph block bounds")
             continue
-        images.extend(_glyphs(32 + start, (end - start) // _GLYPH_BYTES, "sis-font", name))
+        images.extend(
+            _glyphs(32 + start, (end - start) // _GLYPH_BYTES, "sis-font", name)
+        )
     return images, warnings
 
 
@@ -154,7 +155,9 @@ def _dol_sections(data: bytes) -> list[tuple[int, int, int]]:
     return sections
 
 
-def _dol_offset(sections: list[tuple[int, int, int]], address: int, size: int) -> int | None:
+def _dol_offset(
+    sections: list[tuple[int, int, int]], address: int, size: int
+) -> int | None:
     for offset, start, section_size in sections:
         if start <= address and address + size <= start + section_size:
             return offset + address - start
@@ -170,9 +173,13 @@ def _dol_textures(data: bytes) -> tuple[list[dict], list[str]]:
     if hashlib.sha1(data).hexdigest() == _US_102_SHA1:
         offset = _dol_offset(sections, _FONT_ADDRESS, _FONT_GLYPHS * _GLYPH_BYTES)
         if offset is not None:
-            images.extend(_glyphs(offset, _FONT_GLYPHS, "dol-font", "HSD_SisLib_FontAtlas"))
+            images.extend(
+                _glyphs(offset, _FONT_GLYPHS, "dol-font", "HSD_SisLib_FontAtlas")
+            )
     else:
-        warnings.append("Unknown DOL SHA-1. Built-in font addresses require Melee US v1.02")
+        warnings.append(
+            "Unknown DOL SHA-1. Built-in font addresses require Melee US v1.02"
+        )
 
     # Validate full HSD_ImageDesc fields and mapped pixel bounds, rather than
     # accepting arbitrary width/height pairs within executable data. US v1.02
@@ -199,16 +206,18 @@ def _dol_textures(data: bytes) -> tuple[list[dict], list[str]]:
             if fmt in PALETTED:
                 warnings.append(f"DOL image at {descriptor_address:#x} needs a palette")
                 continue
-            images.append({
-                "image_offset": image_offset,
-                "descriptor_offset": offset,
-                "width": width,
-                "height": height,
-                "format": fmt,
-                "mipmap": bool(mipmap),
-                "kind": "dol-image",
-                "symbol": f"HSD_ImageDesc_{descriptor_address:08x}",
-            })
+            images.append(
+                {
+                    "image_offset": image_offset,
+                    "descriptor_offset": offset,
+                    "width": width,
+                    "height": height,
+                    "format": fmt,
+                    "mipmap": bool(mipmap),
+                    "kind": "dol-image",
+                    "symbol": f"HSD_ImageDesc_{descriptor_address:08x}",
+                }
+            )
     return images, warnings
 
 
@@ -256,11 +265,13 @@ def _tpl_textures(data: bytes) -> tuple[list[dict], list[str]]:
             ):
                 warnings.append(f"TPL {index}: invalid palette")
                 continue
-            image.update({
-                "palette_offset": palette_offset,
-                "palette_format": palette_format,
-                "palette_entries": entries,
-            })
+            image.update(
+                {
+                    "palette_offset": palette_offset,
+                    "palette_format": palette_format,
+                    "palette_entries": entries,
+                }
+            )
         images.append(image)
     return images, warnings
 
@@ -279,14 +290,16 @@ def special_textures(path: Path, data: bytes) -> tuple[list[dict], list[str]]:
     if data[:4] in (b"BNR1", b"BNR2"):
         if not _span(data, 32, 96 * 32 * 2):
             return [], ["Truncated banner pixels"]
-        return [{
-            "image_offset": 32,
-            "width": 96,
-            "height": 32,
-            "format": 5,
-            "mipmap": False,
-            "kind": "banner",
-        }], []
+        return [
+            {
+                "image_offset": 32,
+                "width": 96,
+                "height": 32,
+                "format": 5,
+                "mipmap": False,
+                "kind": "banner",
+            }
+        ], []
     if path.suffix.lower() in (".dat", ".usd"):
         return _sis_textures(data)
     return [], []

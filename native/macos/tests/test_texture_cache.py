@@ -123,9 +123,9 @@ int main()
             executable = directory / "cache"
             subprocess.run(
                 ["c++", "-std=c++20", "-I", str(directory), str(test),
-                 str(directory / "VideoCommon/Resources/Resource.cpp"),
-                 str(directory / "VideoCommon/Resources/TextureDataResource.cpp"),
-                 "-o", str(executable)],
+                    str(directory / "VideoCommon/Resources/Resource.cpp"),
+                    str(directory / "VideoCommon/Resources/TextureDataResource.cpp"),
+                    "-o", str(executable)],
                 check=True,
             )
             result = subprocess.run([str(executable)], capture_output=True, text=True)

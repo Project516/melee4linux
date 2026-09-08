@@ -17,11 +17,22 @@ def sis_archive(glyph_bytes=1024, extra_block=True):
     data_size = image_end + (64 if extra_block else 0)
     body = bytearray(data_size)
     struct.pack_into(">III", body, 0, image_start, 32, image_end)
-    relocations = struct.pack(">III", 0, 4, 8) if extra_block else struct.pack(">II", 0, 4)
+    relocations = (
+        struct.pack(">III", 0, 4, 8) if extra_block else struct.pack(">II", 0, 4)
+    )
     publics = struct.pack(">II", 0, 0)
     names = b"SIS_Test\0"
-    header = struct.pack(">8I", 32 + len(body + relocations + publics + names),
-                         data_size, len(relocations) // 4, 1, 0, 0, 0, 0)
+    header = struct.pack(
+        ">8I",
+        32 + len(body + relocations + publics + names),
+        data_size,
+        len(relocations) // 4,
+        1,
+        0,
+        0,
+        0,
+        0,
+    )
     return header + body + relocations + publics + names
 
 
@@ -79,7 +90,9 @@ class SpecialTextureTests(unittest.TestCase):
         self.assertEqual(warnings, [])
         self.assertEqual([image["image_offset"] for image in images], [96, 608])
         self.assertEqual([image["glyph_index"] for image in images], [0, 1])
-        self.assertTrue(all(image["width"] == image["height"] == 32 for image in images))
+        self.assertTrue(
+            all(image["width"] == image["height"] == 32 for image in images)
+        )
         self.assertEqual(images[0]["format"], 0)
         self.assertEqual(images[0]["symbol"], "SIS_Test")
 
@@ -104,7 +117,9 @@ class SpecialTextureTests(unittest.TestCase):
         data = b"BNR1" + bytes(28 + 96 * 32 * 2)
         images, warnings = special_textures(Path("opening.bnr"), data)
         self.assertEqual(warnings, [])
-        self.assertEqual((images[0]["width"], images[0]["height"], images[0]["format"]), (96, 32, 5))
+        self.assertEqual(
+            (images[0]["width"], images[0]["height"], images[0]["format"]), (96, 32, 5)
+        )
         images, warnings = special_textures(Path("opening.bnr"), data[:-1])
         self.assertEqual(images, [])
         self.assertEqual(warnings, ["Truncated banner pixels"])

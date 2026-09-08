@@ -6,8 +6,8 @@ import json
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
 import xxhash
+from PIL import Image
 
 try:
     from .dds import write_dds
@@ -32,21 +32,34 @@ def write_still_planes(original_thp, upscaled_image, destination):
         raise ValueError("Expected a GmRegend ending still with a JPEG start marker")
     with Image.open(upscaled_image) as source:
         image = source.convert("RGB")
-    if image.width % 560 or image.height % 416 or image.width // 560 != image.height // 416:
-        raise ValueError("The upscaled ending still must be an integer multiple of 560 by 416")
+    if (
+        image.width % 560
+        or image.height % 416
+        or image.width // 560 != image.height // 416
+    ):
+        raise ValueError(
+            "The upscaled ending still must be an integer multiple of 560 by 416"
+        )
     digest = xxhash.xxh64_hexdigest(data, seed=0)
     files = []
     for channel, plane in make_planes(image).items():
         target = Path(destination) / f"tex1_still_{digest}_{channel}.dds"
         levels = write_dds(plane, target, data_channels=True)
-        files.append({
-            "channel": channel, "file": target.name, "width": plane.width,
-            "height": plane.height, "mip_levels": levels,
-            "sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
-        })
+        files.append(
+            {
+                "channel": channel,
+                "file": target.name,
+                "width": plane.width,
+                "height": plane.height,
+                "mip_levels": levels,
+                "sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
+            }
+        )
     return {
-        "source": original_thp.name, "source_xxh64": digest,
-        "source_sha256": hashlib.sha256(data).hexdigest(), "planes": files,
+        "source": original_thp.name,
+        "source_xxh64": digest,
+        "source_sha256": hashlib.sha256(data).hexdigest(),
+        "planes": files,
     }
 
 
@@ -64,8 +77,12 @@ def main():
         records.append(write_still_planes(source, image, args.output))
     if not records:
         parser.error("No ending stills found")
-    (args.output / "ending-stills.json").write_text(json.dumps({"stills": records}, indent=2) + "\n")
-    print(f"Wrote {len(records)} ending stills as {len(records) * 3} full-resolution planes")
+    (args.output / "ending-stills.json").write_text(
+        json.dumps({"stills": records}, indent=2) + "\n"
+    )
+    print(
+        f"Wrote {len(records)} ending stills as {len(records) * 3} full-resolution planes"
+    )
 
 
 if __name__ == "__main__":
