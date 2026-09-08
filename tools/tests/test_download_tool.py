@@ -1,6 +1,7 @@
 import contextlib
 import http.client
 import io
+import os
 import stat
 import tempfile
 import unittest
@@ -42,7 +43,8 @@ class DownloadToolTests(unittest.TestCase):
         with patch("tools.download_tool.urllib.request.urlopen", return_value=http_response(b"tool")):
             self.assertEqual(download_tool.main(), 0)
         self.assertEqual(self.output.read_bytes(), b"tool")
-        self.assertTrue(self.output.stat().st_mode & stat.S_IXUSR)
+        if os.name != "nt":
+            self.assertTrue(self.output.stat().st_mode & stat.S_IXUSR)
         self.assertEqual(list(self.output.parent.iterdir()), [self.output])
 
     def test_short_http_response_preserves_the_existing_tool(self):
@@ -90,7 +92,8 @@ class DownloadToolTests(unittest.TestCase):
         download_tool.download("https://example.test/tools.zip", contents, self.output)
 
         self.assertEqual((self.output / "bin/compiler").read_bytes(), b"compiler")
-        self.assertTrue((self.output / "bin/compiler").stat().st_mode & stat.S_IXUSR)
+        if os.name != "nt":
+            self.assertTrue((self.output / "bin/compiler").stat().st_mode & stat.S_IXUSR)
 
     def test_missing_certificate_package_returns_failure(self):
         error = urllib.error.URLError("CERTIFICATE_VERIFY_FAILED")
