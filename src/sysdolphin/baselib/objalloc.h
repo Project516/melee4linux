@@ -24,9 +24,13 @@ typedef struct _HSD_ObjAllocData {
     u32 free;
     u32 peak;
     u32 num_limit;
+    // Free heap threshold for enabling the cap on allocated objects.
     u32 heap_limit_size;
+    // Captured pool count, or -1 while the heap threshold does not limit it.
     u32 heap_limit_num;
+    // Object stride after alignment.
     u32 size;
+    // Requested alignment minus one.
     u32 align;
     struct _HSD_ObjAllocData* next;
 } HSD_ObjAllocData;
@@ -70,6 +74,7 @@ static inline void HSD_ObjAllocDisableNumLimit(HSD_ObjAllocData* data)
 }
 
 void HSD_ObjSetHeap(u32 size, void* ptr);
+// Grow the free list by up to num objects. Return the number added.
 s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num);
 void* HSD_ObjAlloc(HSD_ObjAllocData* data);
 void HSD_ObjFree(HSD_ObjAllocData* data, void* obj);

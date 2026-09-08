@@ -1,74 +1,104 @@
-# `splits.txt`
+# Object boundaries and link order
 
-This file contains file splits for a module.
+[`config/GALE01/splits.txt`](../config/GALE01/splits.txt) assigns ranges of
+the original US v1.02 executable to compilation units. A unit is the object
+produced from one source file. Decomp-toolkit uses these ranges to generate
+reference objects and resolve their link order.
 
-Example:
+## How the build files fit together
 
-```yaml
+| File | Role |
+| --- | --- |
+| [`config.yml`](../config/GALE01/config.yml) | Select the original DOL, its hash, and the symbol and split files. |
+| [`symbols.txt`](symbols.md) | Name functions, data objects, and labels within sections. |
+| [`splits.txt`](../config/GALE01/splits.txt) | Assign section ranges to compilation units. |
+| [`configure.py`](../configure.py) | Select source files, compiler settings, and whether the linker uses each compiled object. |
+| [`src`](../src) | Supply the C and assembly implementations. |
+
+For example, `Object(Matching, "melee/lb/lbcommand.c")` in `configure.py`
+selects the rebuilt command object for linking. Its split entry describes
+the reference object's original ranges. A file marked incomplete can use
+an extracted original object instead. The [verification tool](../tools/verify.py)
+checks source completion as well as the final executable, so this fallback
+cannot hide incomplete source during cleanup.
+
+## Section header and source entries
+
+This is an excerpt from the actual configuration. The complete file also
+declares other sections.
+
+```text
 Sections:
-	.text       type:code align:32
-	.ctors      type:rodata align:32
-	.data       type:data align:32
-	.bss        type:bss align:32
+    .text       type:code align:32
+    .data       type:data align:32
+    .sdata2     type:rodata align:32
 
-path/to/file.cpp:
-	.text       start:0x80047E5C end:0x8004875C
-	.ctors      start:0x803A54C4 end:0x803A54C8
-	.data       start:0x803B1B40 end:0x803B1B60
-	.bss        start:0x803DF828 end:0x803DFA8C
-	.bss        start:0x8040D4AC end:0x8040D4D8 common
+melee/lb/lbcommand.c:
+    .text       start:0x80005940 end:0x80005BB0
+    .data       start:0x803B9840 end:0x803B9880
+    .sdata2     start:0x804D79E0 end:0x804D79F0
 ```
 
-## Header
+The header describes the executable's sections in the toolkit's text format.
+`type:` accepts `code`, `data`, `rodata`, or `bss`.
+`align:` sets the section alignment in bytes.
 
-```yaml
-Sections:
-    section     [section attributes]
+Each source entry can cover several sections. Its name matches the object
+name used in `configure.py`. For this example, the source is
+[`src/melee/lb/lbcommand.c`](../src/melee/lb/lbcommand.c).
+
+The `start:` address is included and `end:` is excluded. Addresses in this
+DOL configuration are absolute. The `.text` range above therefore contains
+`0x270` bytes. The next unit, `melee/lb/lbcollision.c`, starts at
+`0x80005BB0`. These byte ranges remain tied to the original executable as
+the source changes.
+
+## Optional attributes
+
+File attributes follow the source name on the same line:
+
+| Attribute | Meaning |
+| --- | --- |
+| `comment:` | Override `mw_comment_version` from `config.yml` for the generated reference object. `comment:0` disables its CodeWarrior `.comment` section. |
+| `order:` | Constrain a unit's order relative to other explicitly ordered units. The toolkit otherwise resolves link order from the split ranges. |
+
+Melee has this assembly entry:
+
+```text
+MetroTRK/__exception.s: comment:0
+    .init       start:0x80003298 end:0x800051CC
 ```
 
-### Attributes
+It disables compiler metadata for the reference object corresponding to
+[`__exception.s`](../src/MetroTRK/__exception.s). The global
+`mw_comment_version` is 8. The toolkit's
+[CodeWarrior comment section notes](https://github.com/encounter/dtk-template/blob/main/docs/comment_section.md)
+explain how this metadata affects the linker.
 
-- `type:` The section type. `code`, `data`, `rodata` or `bss`.
-- `align:` The section alignment in bytes.
-- `vaddr:` (REL only) The fixed virtual address of the section. When set, split and symbol addresses are written as absolute addresses.
+Individual section ranges also accept these attributes:
 
-## Files
+| Attribute | Meaning |
+| --- | --- |
+| `align:` | Override the alignment of this split's generated section. |
+| `rename:` | Give the section a different name in the generated object. |
+| `common` | Mark common BSS. See the toolkit's [common BSS notes](https://github.com/encounter/dtk-template/blob/main/docs/common_bss.md). |
+| `skip` | Omit the range when writing the reference object. Used for linker-generated data. |
 
-```yaml
-path/to/file.cpp: [file attributes]
-    section     [section attributes]
-    ...
-```
+The format supports REL modules and a section `vaddr:` attribute for those
+modules. They are outside this GALE01 DOL setup. See the
+[toolkit format reference](https://github.com/encounter/dtk-template/blob/main/docs/splits.md)
+and [v1.8.3 parser](https://github.com/encounter/decomp-toolkit/blob/v1.8.3/src/util/config.rs)
+for those cases.
 
-- `path/to/file.cpp` The name of the source file, usually relative to `src`. The file does **not** need to exist to start.
-  This corresponds to an entry in `configure.py` for specifying compiler flags and other options.
+## Preserve boundaries during cleanup
 
-### File attributes
+Renaming locals, improving comments, and sharing private inline code normally
+leave both `symbols.txt` and `splits.txt` unchanged. Keep the original unit
+boundaries and the compiled objects selected in `configure.py`. Moving a
+function to another source file can change compiler and linker behavior even
+when its C statements stay the same.
 
-- `comment:` Overrides the `mw_comment_version` setting in [`config.yml`](/config/GAMEID/config.example.yml) for this file. See [Comment section](comment_section.md).
-  - `comment:0` is used to disable `.comment` section generation for a file that wasn't compiled with `mwcc`.
-  Example: `TRK_MINNOW_DOLPHIN/ppc/Export/targsupp.s: comment:0`
-  This file was assembled and only contains label symbols. Generating a `.comment` section for it will crash `mwld`.
-
-- `order:` Allows influencing the resolved link order of objects. This is **not required**, as decomp-toolkit will generate the link order automatically. This can be used to fine-tune the link order for ambiguous cases.
-  Example:
-  ```
-  file1.cpp: order:0
-    ...
-
-  file2.cpp: order:1
-    ...
-
-  file3.cpp: order:2
-    ...
-  ```
-  This ensures that `file2.cpp` is always anchored in between 1 and 3 when resolving the final link order.
-
-### Section attributes
-
-- `start:` The start address of the section within the file. For DOLs, this is the absolute address (e.g. `0x80001234`). For RELs, this is the section-relative address (e.g. `0x1234`).
-- `end:` The end address of the section within the file.
-- `align:` Specifies the alignment of the section. If not specified, the default alignment for the section is used.
-- `rename:` Writes this section under a different name when generating the split object. Used for `.ctors$10`, etc.
-- `common` Only valid for `.bss`. See [Common BSS](common_bss.md).
-- `skip` Skips this data when writing the object file. Used for ignoring data that's linker-generated.
+Use `--no-always-apply` to prevent automatic symbol-file writes while
+building. If a build stops matching, inspect the changed object and retain
+its reference boundaries. Follow the [build guide](build-and-run.md)
+and run `python tools/verify.py` after an intended configuration change.

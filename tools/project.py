@@ -6,8 +6,8 @@
 # and shared between multiple projects. Any configuration
 # specific to a project should be added to `configure.py`.
 #
-# If changes are made, please submit a PR to
-# https://github.com/encounter/dtk-template
+# Based on https://github.com/encounter/dtk-template.
+# Changes for this automated fork stay in t3dotgg/melee.
 ###
 
 import io
@@ -151,7 +151,7 @@ class ProjectConfig:
         self.compilers_tag: Optional[str] = None  # 1
         self.compilers_path: Optional[Path] = None  # If None, download
         self.wibo_tag: Optional[str] = None  # Git tag
-        self.wrapper: Optional[Path] = None  # If None, download wibo on Linux
+        self.wrapper: Optional[Path] = None  # Download wibo on supported hosts
         self.sjiswrap_tag: Optional[str] = None  # Git tag
         self.sjiswrap_path: Optional[Path] = None  # If None, download
         self.ninja_path: Optional[Path] = None  # If None, use system PATH
@@ -283,10 +283,14 @@ class ProjectConfig:
 
     # Determines whether or not to use wibo as the compiler wrapper.
     def use_wibo(self) -> bool:
+        machine = platform.machine()
+        supported_host = (
+            sys.platform == "linux"
+            and machine in ("i386", "x86_64", "aarch64", "arm64")
+        ) or (sys.platform == "darwin" and machine in ("x86_64", "arm64"))
         return (
             self.wibo_tag is not None
-            and sys.platform == "linux"
-            and platform.machine() in ("i386", "x86_64", "aarch64", "arm64")
+            and supported_host
             and self.wrapper is None
         )
 

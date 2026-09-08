@@ -6,8 +6,8 @@
 # Usage:
 #   python3 tools/download_tool.py wibo build/tools/wibo --tag 1.0.0
 #
-# If changes are made, please submit a PR to
-# https://github.com/encounter/dtk-template
+# Based on https://github.com/encounter/dtk-template.
+# Changes for this automated fork stay in t3dotgg/melee.
 ###
 
 import argparse
@@ -79,7 +79,8 @@ def sjiswrap_url(tag: str) -> str:
 
 def wibo_url(tag: str) -> str:
     repo = "https://github.com/decompals/wibo"
-    return f"{repo}/releases/download/{tag}/wibo"
+    asset = "wibo-macos" if platform.system() == "Darwin" else "wibo"
+    return f"{repo}/releases/download/{tag}/{asset}"
 
 
 TOOLS: Dict[str, Callable[[str], str]] = {

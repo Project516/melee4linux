@@ -33,8 +33,6 @@ typedef u32 HSD_Pad;
 #define HSD_PAD_AB (HSD_PAD_A | HSD_PAD_B)
 #define HSD_PAD_XY (HSD_PAD_X | HSD_PAD_Y)
 
-#define PAD_ERR_NO_CONTROLLER -1
-
 typedef enum _HSD_FlushType {
     HSD_PAD_FLUSH_QUEUE_MERGE,
     HSD_PAD_FLUSH_QUEUE_THROWAWAY,
@@ -43,7 +41,7 @@ typedef enum _HSD_FlushType {
 } HSD_FlushType;
 
 struct HSD_PadData {
-    PADStatus stat[4];
+    PADStatus stat[PAD_MAX_CONTROLLERS];
 };
 
 struct HSD_PadStatus {
@@ -104,9 +102,9 @@ struct PadLibData {
     /*0x2C*/ struct RumbleInfo rumble_info;
 };
 
-extern HSD_PadStatus HSD_PadMasterStatus[4];
-extern HSD_PadStatus HSD_PadGameStatus[4];
-extern HSD_PadStatus HSD_PadCopyStatus[4];
+extern HSD_PadStatus HSD_PadMasterStatus[PAD_MAX_CONTROLLERS];
+extern HSD_PadStatus HSD_PadGameStatus[PAD_MAX_CONTROLLERS];
+extern HSD_PadStatus HSD_PadCopyStatus[PAD_MAX_CONTROLLERS];
 
 static inline float HSD_PadGetNmlStickY(u8 slot)
 {
@@ -118,16 +116,17 @@ static inline float HSD_PadGetNmlSubStickY(u8 slot)
     return HSD_PadCopyStatus[slot].nml_subStickY;
 }
 
-void HSD_PadFlushQueue(HSD_FlushType);
+void HSD_PadFlushQueue(HSD_FlushType flush_type);
 u8 HSD_PadGetRawQueueCount(void);
 s32 HSD_PadGetResetSwitch(void);
-void HSD_PadRenewRawStatus(bool);
+void HSD_PadRenewRawStatus(bool skip_if_all_invalid);
 void HSD_PadRenewMasterStatus(void);
 void HSD_PadRenewCopyStatus(void);
 void HSD_PadRenewGameStatus(void);
 void HSD_PadRenewStatus(void);
 void HSD_PadReset(void);
-void HSD_PadInit(u8, HSD_PadData*, u16, HSD_PadRumbleListData*);
+void HSD_PadInit(u8 queue_capacity, HSD_PadData* queue, u16 rumble_capacity,
+                 HSD_PadRumbleListData* rumble_list);
 extern PadLibData HSD_PadLibData;
 
 #endif
