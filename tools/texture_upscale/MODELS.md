@@ -65,3 +65,38 @@ Use a fixed method for each animation sequence. Deterministic filters are the
 safe choice for font atlases, packed masks, and small effects because a color
 model can invent marks or change them between frames. A deterministic network
 still can infer different detail on two different source frames.
+
+## Measured comparison
+
+On an Apple M5 Max, a 192x160 image scaled to 768x640 took these times after
+model loading and one warmup run. These are offline asset generation times,
+not game frame times.
+
+| Method | Time |
+| --- | ---: |
+| Lanczos | 3.4 ms |
+| Anime video | 10.2 ms |
+| General | 11.4 ms |
+| General with weak noise removal | 11.3 ms |
+| RealESRGAN_x4plus | 146.5 ms |
+
+The large model processed all 36 decoded Fox textures in 2.90 seconds with a
+384-pixel tile. MPS driver allocation was about 1.13 GiB. No model is required
+when the game loads the resulting texture pack.
+
+A visual comparison used Fox fur, eye, jacket, zipper and logo, plus Battlefield
+metal, water, and fire textures. The anime model gave clean large shapes but
+removed fine fur and metal lines. The general model also removed material grain.
+The model with weak noise removal retained the grain. The large model gave the
+best balance of sharper edges and material detail in this sample.
+
+Six further comparisons covered menu text, menu art, and effects. AI made thin
+lightning branches wider and added grain to smoke. Deterministic channel
+filtering kept those shapes. No tested model repaired all source defects in the
+small menu lettering. Clean font or logo replacements need separate work.
+
+Use the large model for color assets where generated detail helps. Use channel
+filtering for intensity, mask, and lookup textures, and keep each animation
+sequence on one method. The weak noise removal model is an option when the large
+model removes desired material grain. Review the result in motion. These sample
+comparisons do not prove visual quality for every game texture.
