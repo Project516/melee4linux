@@ -1,0 +1,6 @@
+# Use the texture tools' pinned versions. These tests do not run AI inference.
+-c ../texture_upscale/requirements.txt
+Pillow
+numpy
+scipy
+xxhash
