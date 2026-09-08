@@ -225,8 +225,10 @@ def assemble(root: Path, app: Path) -> None:
     for name in ("LICENSE", "CREDITS.md"):
         shutil.copy2(root / name, resources / "Licenses" / name)
     upstream = root / "upstream/ModernGekko-Template/lib/ModernGekko"
-    for source, name in ((upstream / "LICENSE", "ModernGekko-LICENSE"),
-                         (upstream / "vendor/dolphin/COPYING", "Dolphin-COPYING")):
+    for source, name in (
+        (upstream / "LICENSE", "ModernGekko-LICENSE"),
+        (upstream / "vendor/dolphin/COPYING", "Dolphin-COPYING"),
+    ):
         if source.is_file():
             shutil.copy2(source, resources / "Licenses" / name)
     run("xcrun", "clang", "-O2", "-Wall", "-Wextra", "-Werror", "-arch", "arm64",

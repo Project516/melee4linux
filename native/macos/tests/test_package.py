@@ -25,9 +25,11 @@ class PackageTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
 
     def make_input(self):
-        for name in ("build/runtime/moderngekko-run", "build/game/gGALE01_recomp.dylib",
-                     "private/GALE01r2/sys/main.dol", "private/GALE01r2/files/asset.dat",
-                     "build/runtime/Sys/test.ini", "config/GCPadNew.ini", "LICENSE", "CREDITS.md"):
+        for name in (
+            "build/runtime/moderngekko-run", "build/game/gGALE01_recomp.dylib",
+            "private/GALE01r2/sys/main.dol", "private/GALE01r2/files/asset.dat",
+            "build/runtime/Sys/test.ini", "config/GCPadNew.ini", "LICENSE", "CREDITS.md",
+        ):
             path = self.root / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b"test input")
@@ -82,54 +84,61 @@ class PackageTests(unittest.TestCase):
         dependency.parent.mkdir(parents=True)
         dependency.touch()
         rpath = package.expand_path("@loader_path/../shared libs", loader, loader)
-        self.assertEqual(package.resolve_dependency("@rpath/libdep.dylib", loader, loader, (rpath,)),
-                         dependency.resolve())
+        self.assertEqual(
+            package.resolve_dependency("@rpath/libdep.dylib", loader, loader, (rpath,)),
+            dependency.resolve(),
+        )
 
     def test_missing_transitive_dependency_is_an_error(self):
         with self.assertRaisesRegex(package.PackageError, "libmissing.dylib"):
-            package.resolve_dependency("@rpath/libmissing.dylib", self.root / "loader",
-                                       self.root / "runner", (self.root,))
+            package.resolve_dependency(
+                "@rpath/libmissing.dylib", self.root / "loader",
+                self.root / "runner", (self.root,),
+            )
 
     def test_parse_distinguishes_library_identity_and_dependency(self):
-        info = package.parse_load_commands("""some library:
-Load command 1
-          cmd LC_ID_DYLIB
-      cmdsize 64
-         name @rpath/libself.dylib (offset 24)
-Load command 2
-          cmd LC_LOAD_WEAK_DYLIB
-      cmdsize 72
-         name /build path/libother.dylib (offset 24)
-Load command 3
-          cmd LC_RPATH
-      cmdsize 48
-         path @loader_path/../lib (offset 12)
-""")
+        info = package.parse_load_commands(
+            "some library:\n"
+            "Load command 1\n"
+            "          cmd LC_ID_DYLIB\n"
+            "      cmdsize 64\n"
+            "         name @rpath/libself.dylib (offset 24)\n"
+            "Load command 2\n"
+            "          cmd LC_LOAD_WEAK_DYLIB\n"
+            "      cmdsize 72\n"
+            "         name /build path/libother.dylib (offset 24)\n"
+            "Load command 3\n"
+            "          cmd LC_RPATH\n"
+            "      cmdsize 48\n"
+            "         path @loader_path/../lib (offset 12)\n"
+        )
         self.assertEqual(info.install_id, "@rpath/libself.dylib")
         self.assertEqual(info.dependencies, ("/build path/libother.dylib",))
         self.assertEqual(info.rpaths, ("@loader_path/../lib",))
 
     def test_parse_uses_deployment_version_instead_of_sdk_or_tool_version(self):
-        info = package.parse_load_commands("""library:
-Load command 1
-      cmd LC_BUILD_VERSION
- platform 1
-    minos 26.0.0
-      sdk 26.5
-   ntools 1
-     tool 3
-  version 1267.0
-""")
+        info = package.parse_load_commands(
+            "library:\n"
+            "Load command 1\n"
+            "      cmd LC_BUILD_VERSION\n"
+            " platform 1\n"
+            "    minos 26.0.0\n"
+            "      sdk 26.5\n"
+            "   ntools 1\n"
+            "     tool 3\n"
+            "  version 1267.0\n"
+        )
         self.assertEqual(info.minimum_macos, (26, 0, 0))
 
     def test_parse_legacy_macos_version(self):
-        info = package.parse_load_commands("""library:
-Load command 1
-      cmd LC_VERSION_MIN_MACOSX
-  cmdsize 16
-  version 10.14.6
-      sdk 11.0
-""")
+        info = package.parse_load_commands(
+            "library:\n"
+            "Load command 1\n"
+            "      cmd LC_VERSION_MIN_MACOSX\n"
+            "  cmdsize 16\n"
+            "  version 10.14.6\n"
+            "      sdk 11.0\n"
+        )
         self.assertEqual(info.minimum_macos, (10, 14, 6))
 
     def test_minimum_version_includes_newer_library_and_compares_numbers(self):
