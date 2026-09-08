@@ -1,0 +1,53 @@
+diff --git a/macos/MeleeFrontend.inc b/macos/MeleeFrontend.inc
+--- a/macos/MeleeFrontend.inc
++++ b/macos/MeleeFrontend.inc
+@@ -6,6 +6,7 @@
+ #include "Core/HW/GCPad.h"
+ #include "Core/HW/SI/SI.h"
+ #include "Core/HW/SI/SI_Device.h"
++#include "Core/NetPlay/NetPlayProto.h"
+ #include "InputCommon/ControllerInterface/ControllerInterface.h"
+ #include <atomic>
+ extern std::atomic<bool> g_melee_menu_open;
+@@ -177,6 +178,14 @@
+   {
+     [self label:@"This app includes the game data from your verified Melee USA revision 2 disc. It can run without the build folder." at:NSMakeRect(20,185,560,75) in:v];
+     [self button:@"Show log folder" action:@selector(showLogs:) at:NSMakeRect(20,135,285,35) in:v];
++    if (!NetPlay::IsNetPlayRunning())
++    {
++      NSButton* fast = [NSButton checkboxWithTitle:@"Faster loading" target:self action:@selector(fastLoading:)];
++      fast.frame = NSMakeRect(330,138,240,30);
++      fast.state = Config::Get(Config::MAIN_FAST_DISC_SPEED) ? NSControlStateValueOn : NSControlStateValueOff;
++      [v addSubview:fast];
++      [self label:@"Skip disc seek delays.\nTurn off for GameCube disc timing." at:NSMakeRect(330,75,240,60) in:v];
++    }
+     [self label:@"Settings and memory cards stay in your Application Support folder when you move or replace this app." at:NSMakeRect(20,15,560,58) in:v];
+   }
+   else
+@@ -228,6 +237,14 @@
+ - (void)volume:(NSSlider*)sender { Config::SetCurrent(Config::MAIN_AUDIO_VOLUME,sender.intValue); AudioCommon::UpdateSoundStream(Core::System::GetInstance()); self.preferences[@"volume"]=@(sender.intValue); [self save]; }
+ - (void)scale:(NSPopUpButton*)sender { int value=(int)sender.indexOfSelectedItem+1; Config::SetCurrent(Config::GFX_EFB_SCALE,value); self.preferences[@"scale"]=@(value); [self save]; }
+ - (void)vsync:(NSButton*)sender { bool value=sender.state==NSControlStateValueOn; Config::SetCurrent(Config::GFX_VSYNC,value); self.preferences[@"vsync"]=@(value); [self save]; }
++- (void)fastLoading:(NSButton*)sender
++{
++  if (!getenv("MELEE_APP_BUNDLE") || NetPlay::IsNetPlayRunning()) return;
++  const bool value = sender.state == NSControlStateValueOn;
++  Config::SetCurrent(Config::MAIN_FAST_DISC_SPEED, value);
++  self.preferences[@"fast_loading"] = @(value);
++  [self save];
++}
+ - (void)fullscreen:(id)sender { [self.game toggleFullScreen:nil]; }
+ - (void)showSaves:(id)sender { [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:[self.preferencesPath stringByDeletingLastPathComponent].stringByDeletingLastPathComponent]]; }
+ - (void)showLogs:(id)sender { [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Library/Logs/t3.melee.native"]]]; }
+@@ -301,6 +318,11 @@
+   @autoreleasepool {
+     NSString* path=[[NSString stringWithUTF8String:File::GetUserPath(D_CONFIG_IDX).c_str()] stringByAppendingPathComponent:@"MeleeFrontend.plist"];
+     NSDictionary* prefs=[NSDictionary dictionaryWithContentsOfFile:path];
++    if (getenv("MELEE_APP_BUNDLE") && !NetPlay::IsNetPlayRunning())
++    {
++      const bool fast_loading = !prefs[@"fast_loading"] || [prefs[@"fast_loading"] boolValue];
++      Config::SetCurrent(Config::MAIN_FAST_DISC_SPEED, fast_loading);
++    }
+     if (prefs[@"volume"]) Config::SetCurrent(Config::MAIN_AUDIO_VOLUME,std::clamp([prefs[@"volume"] intValue],0,100));
+     if (prefs[@"scale"]) Config::SetCurrent(Config::GFX_EFB_SCALE,std::clamp([prefs[@"scale"] intValue],1,6));
+     if (prefs[@"vsync"]) Config::SetCurrent(Config::GFX_VSYNC,[prefs[@"vsync"] boolValue]);
