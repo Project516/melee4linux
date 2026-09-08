@@ -7,17 +7,16 @@
 # Usage:
 #   python3 tools/transform_dep.py build/src/file.d build/src/file.d
 #
-# If changes are made, please submit a PR to
-# https://github.com/encounter/dtk-template
+# Based on https://github.com/encounter/dtk-template.
+# Changes for this automated fork stay in t3dotgg/melee.
 ###
 
 import argparse
 import os
+import re
 from platform import uname
 
-wineprefix = os.path.join(os.environ["HOME"], ".wine")
-if "WINEPREFIX" in os.environ:
-    wineprefix = os.environ["WINEPREFIX"]
+wineprefix = os.environ.get("WINEPREFIX", os.path.expanduser("~/.wine"))
 winedevices = os.path.join(wineprefix, "dosdevices")
 
 
@@ -31,10 +30,12 @@ def import_d_file(in_file: str) -> str:
     with open(in_file) as file:
         for idx, line in enumerate(file):
             if idx == 0:
+                # MWCC escapes spaces with a backslash. Preserve those
+                # escapes and the continuation while changing separators.
                 if line.endswith(" \\\n"):
-                    out_text += line[:-3].replace("\\", "/") + " \\\n"
+                    out_text += re.sub(r"\\(?! )", "/", line[:-3]) + " \\\n"
                 else:
-                    out_text += line.replace("\\", "/")
+                    out_text += re.sub(r"\\(?! )", "/", line)
             else:
                 suffix = ""
                 if line.endswith(" \\\n"):
@@ -42,6 +43,10 @@ def import_d_file(in_file: str) -> str:
                     path = line.lstrip()[:-3]
                 else:
                     path = line.strip()
+                if not path:
+                    continue
+                # Resolve the real filesystem path before escaping it for make.
+                path = path.replace("\\ ", " ")
                 # lowercase drive letter
                 path = path[0].lower() + path[1:]
                 if path[0] == "z":
@@ -55,7 +60,7 @@ def import_d_file(in_file: str) -> str:
                     path = os.path.realpath(
                         os.path.join(winedevices, path.replace("\\", "/"))
                     )
-                out_text += "\t" + path + suffix + "\n"
+                out_text += "\t" + path.replace(" ", "\\ ") + suffix + "\n"
 
     return out_text
 

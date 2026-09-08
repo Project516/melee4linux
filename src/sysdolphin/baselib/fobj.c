@@ -59,8 +59,8 @@ static inline void HSD_FObjReqAnim(HSD_FObj* fobj, f32 startframe)
 
     fobj->ad = fobj->ad_head;
     fobj->time = (f32) fobj->startframe + startframe;
-    fobj->op = 0;
-    fobj->op_intrp = 0;
+    fobj->op = HSD_A_OP_NONE;
+    fobj->op_intrp = HSD_A_OP_NONE;
     fobj->flags &= ~0x40;
     fobj->nb_pack = 0;
     fobj->fterm = 0;
@@ -68,19 +68,19 @@ static inline void HSD_FObjReqAnim(HSD_FObj* fobj, f32 startframe)
     fobj->p1 = 0.f;
     fobj->d0 = 0.f;
     fobj->d1 = 0.f;
-    HSD_FObjSetState(fobj, 1);
+    HSD_FObjSetState(fobj, FOBJ_LOAD_DATA0);
 }
 
 void HSD_FObjReqAnimAll(HSD_FObj* fobj, f32 startframe)
 {
-    HSD_FObj* fp;
+    HSD_FObj* track;
 
     if (fobj == NULL) {
         return;
     }
 
-    for (fp = fobj; fp != NULL; fp = fp->next) {
-        HSD_FObjReqAnim(fp, startframe);
+    for (track = fobj; track != NULL; track = track->next) {
+        HSD_FObjReqAnim(track, startframe);
     }
 }
 
@@ -111,70 +111,73 @@ void HSD_FObjStopAnimAll(HSD_FObj* fobj, void* obj,
     }
 }
 
-static f32 parseFloat(u8** pos, u8 frac)
+/* Stream values store the least significant byte first. */
+static f32 parseFloat(u8** cursor, u8 format)
 {
     union {
-        f32 f;
-        u32 d;
-    } u;
-    f32 numer;
-    s32 denom;
+        f32 value;
+        u32 bits;
+    } decoded;
+    f32 raw_value;
+    s32 scale_divisor;
 
-    if (frac == HSD_A_FRAC_FLOAT) {
-        u.d = (s32) ((*pos)++)[0];
-        u.d |= ((*pos)++)[0] << 8;
-        u.d |= ((*pos)++)[0] << 16;
-        u.d |= ((*pos)++)[0] << 24;
-        return u.f;
+    if (format == HSD_A_FRAC_FLOAT) {
+        decoded.bits = (s32) ((*cursor)++)[0];
+        decoded.bits |= ((*cursor)++)[0] << 8;
+        decoded.bits |= ((*cursor)++)[0] << 16;
+        decoded.bits |= ((*cursor)++)[0] << 24;
+        return decoded.value;
     }
 
-    denom = (1 << (frac & 0x1F));
-    switch (frac & 0xE0) {
+    scale_divisor = (1 << (format & 0x1F));
+    switch (format & 0xE0) {
     case HSD_A_FRAC_S8:
-        numer = (s8) (*pos)[0];
-        *pos += 1;
+        raw_value = (s8) (*cursor)[0];
+        *cursor += 1;
         break;
     case HSD_A_FRAC_U8:
-        numer = (*pos)[0];
-        *pos += 1;
+        raw_value = (*cursor)[0];
+        *cursor += 1;
         break;
     case HSD_A_FRAC_S16:
-        numer = ((s8) (*pos)[1] << 8) | (*pos)[0];
-        *pos += 2;
+        raw_value = ((s8) (*cursor)[1] << 8) | (*cursor)[0];
+        *cursor += 2;
         break;
     case HSD_A_FRAC_U16:
-        numer = ((*pos)[1] << 8) | (*pos)[0];
-        *pos += 2;
+        raw_value = ((*cursor)[1] << 8) | (*cursor)[0];
+        *cursor += 2;
         break;
     default:
         return 0.0f;
     }
-    return numer / denom;
+    return raw_value / scale_divisor;
 }
 
-static u8 parseOpCode(u8** curr_parse)
+/* The opcode shares a byte with the repeat count. Leave it for that parser. */
+static u8 parseOpCode(u8** cursor)
 {
-    return (**curr_parse) & 0xF;
+    return (**cursor) & 0xF;
 }
 
-static u32 parsePackInfo(u8** adp)
+/* Decode count minus one: three header bits, then seven bits per byte. */
+static u32 parsePackInfo(u8** cursor)
 {
-    u8 d;
-    u32 nb_pack;
+    u8 encoded_byte;
+    u32 repeat_count;
     s32 shift;
 
-    d = *(*adp)++;
-    nb_pack = ((d >> 4) & 7) + 1;
+    encoded_byte = *(*cursor)++;
+    repeat_count = ((encoded_byte >> 4) & 7) + 1;
     shift = 3;
-    if (!(d & 0x80)) {
-        return nb_pack;
+    if (!(encoded_byte & 0x80)) {
+        return repeat_count;
     }
     do {
-        d = *(*adp)++;
-        nb_pack += (d & 0x7F) << shift;
+        encoded_byte = *(*cursor)++;
+        repeat_count += (encoded_byte & 0x7F) << shift;
         shift += 7;
-    } while (d & 0x80);
-    return nb_pack;
+    } while (encoded_byte & 0x80);
+    return repeat_count;
 }
 
 static void FObjLaunchKeyData(HSD_FObj* fobj)
@@ -187,19 +190,20 @@ static void FObjLaunchKeyData(HSD_FObj* fobj)
     }
 }
 
-static s32 parseWait(u8** adp)
+/* Read seven-bit value groups, least significant first, until bit 7 clears. */
+static s32 parseWait(u8** cursor)
 {
-    u8 d;
-    s32 wait = 0;
+    u8 encoded_byte;
+    s32 wait_frames = 0;
     s32 shift = 0;
 
     do {
-        d = *(*adp)++;
-        wait |= (d & 0x7f) << shift;
+        encoded_byte = *(*cursor)++;
+        wait_frames |= (encoded_byte & 0x7f) << shift;
         shift += 7;
-    } while (d & 0x80);
+    } while (encoded_byte & 0x80);
 
-    return wait;
+    return wait_frames;
 }
 
 static u32 FObjLoadWait(HSD_FObj* fobj)
@@ -212,7 +216,7 @@ static u32 FObjLoadWait(HSD_FObj* fobj)
     } else {
         fobj->fterm = parseWait(&fobj->ad);
         fobj->flags |= 0x20;
-        return HSD_FObjSetState(fobj, 2);
+        return HSD_FObjSetState(fobj, FOBJ_LOAD_DATA);
     }
 }
 
@@ -223,12 +227,12 @@ static u32 FObjAnimCON(HSD_FObj* fobj)
 
     fobj->p0 = fobj->p1;
     fobj->p1 = parseFloat(&fobj->ad, fobj->frac_value);
-    if (fobj->op_intrp != 5) {
+    if (fobj->op_intrp != HSD_A_OP_SLP) {
         fobj->d0 = fobj->d1;
         fobj->d1 = 0.0F;
     }
 
-    return HSD_FObjSetState(fobj, st == FOBJ_LOAD_DATA0 ? 3 : 4);
+    return HSD_FObjSetState(fobj, st == FOBJ_LOAD_DATA0 ? FOBJ_LOAD_WAIT : 4);
 }
 
 static u32 FObjAnimLinear(HSD_FObj* fobj)
@@ -238,12 +242,12 @@ static u32 FObjAnimLinear(HSD_FObj* fobj)
 
     fobj->p0 = fobj->p1;
     fobj->p1 = parseFloat(&fobj->ad, fobj->frac_value);
-    if (fobj->op_intrp != 5) {
+    if (fobj->op_intrp != HSD_A_OP_SLP) {
         fobj->d0 = fobj->d1;
         fobj->d1 = 0.0F;
     }
 
-    return HSD_FObjSetState(fobj, st == FOBJ_LOAD_DATA0 ? 3 : 4);
+    return HSD_FObjSetState(fobj, st == FOBJ_LOAD_DATA0 ? FOBJ_LOAD_WAIT : 4);
 }
 
 static u32 FObjAnimSPL0(HSD_FObj* fobj)
@@ -256,7 +260,7 @@ static u32 FObjAnimSPL0(HSD_FObj* fobj)
     fobj->p1 = parseFloat(&fobj->ad, fobj->frac_value);
     fobj->d1 = 0.0F;
 
-    return HSD_FObjSetState(fobj, st == FOBJ_LOAD_DATA0 ? 3 : 4);
+    return HSD_FObjSetState(fobj, st == FOBJ_LOAD_DATA0 ? FOBJ_LOAD_WAIT : 4);
 }
 
 static u32 FObjAnimSPL(HSD_FObj* fobj)
@@ -269,7 +273,7 @@ static u32 FObjAnimSPL(HSD_FObj* fobj)
     fobj->d0 = fobj->d1;
     fobj->d1 = parseFloat(&fobj->ad, fobj->frac_slope);
 
-    return HSD_FObjSetState(fobj, st == FOBJ_LOAD_DATA0 ? 3 : 4);
+    return HSD_FObjSetState(fobj, st == FOBJ_LOAD_DATA0 ? FOBJ_LOAD_WAIT : 4);
 }
 
 static u32 FObjAnimSLP(HSD_FObj* fobj)
@@ -292,7 +296,7 @@ static u32 FObjAnimKey(HSD_FObj* fobj)
     fobj->p1 = parseFloat(&fobj->ad, fobj->frac_value);
     fobj->flags |= 0x40;
 
-    return HSD_FObjSetState(fobj, st == FOBJ_LOAD_DATA0 ? 3 : 4);
+    return HSD_FObjSetState(fobj, st == FOBJ_LOAD_DATA0 ? FOBJ_LOAD_WAIT : 4);
 }
 
 static inline u32 FObjLoadData(HSD_FObj* fobj)
@@ -335,8 +339,8 @@ static inline u32 FObjLoadData(HSD_FObj* fobj)
 
 void FObjUpdateAnim(HSD_FObj* fobj, void* obj, HSD_ObjUpdateFunc obj_update)
 {
-    f32 phi_f0;
-    HSD_ObjData fobjdata;
+    f32 step_value;
+    HSD_ObjData update_data;
 
     if (obj_update == NULL) {
         return;
@@ -344,7 +348,7 @@ void FObjUpdateAnim(HSD_FObj* fobj, void* obj, HSD_ObjUpdateFunc obj_update)
     switch (fobj->op_intrp) {
     case HSD_A_OP_KEY:
         if (fobj->flags & 0x80) {
-            fobjdata.fv = fobj->p0;
+            update_data.fv = fobj->p0;
             fobj->flags &= 0xFFFFFF7F;
         } else {
             return;
@@ -352,11 +356,11 @@ void FObjUpdateAnim(HSD_FObj* fobj, void* obj, HSD_ObjUpdateFunc obj_update)
         break;
     case HSD_A_OP_CON:
         if (fobj->time >= fobj->fterm) {
-            phi_f0 = fobj->p1;
+            step_value = fobj->p1;
         } else {
-            phi_f0 = fobj->p0;
+            step_value = fobj->p0;
         }
-        fobjdata.fv = phi_f0;
+        update_data.fv = step_value;
         break;
     case HSD_A_OP_LIN:
         if (fobj->flags & 0x20) {
@@ -368,23 +372,23 @@ void FObjUpdateAnim(HSD_FObj* fobj, void* obj, HSD_ObjUpdateFunc obj_update)
                 fobj->p0 = fobj->p1;
             }
         }
-        fobjdata.fv = fobj->d0 * fobj->time + fobj->p0;
+        update_data.fv = fobj->d0 * fobj->time + fobj->p0;
         break;
     case HSD_A_OP_SPL0:
     case HSD_A_OP_SPL:
     case HSD_A_OP_SLP:
         if (fobj->fterm != 0) {
-            fobjdata.fv =
+            update_data.fv =
                 splGetHelmite(1.0 / fobj->fterm, fobj->time, fobj->p0,
                               fobj->p1, fobj->d0, fobj->d1);
         } else {
-            fobjdata.fv = fobj->p1;
+            update_data.fv = fobj->p1;
         }
         break;
     default:
         break;
     }
-    obj_update(obj, fobj->obj_type, &fobjdata);
+    obj_update(obj, fobj->obj_type, &update_data);
 }
 
 void HSD_FObjInterpretAnim(HSD_FObj* fobj, void* obj,
@@ -404,12 +408,12 @@ void HSD_FObjInterpretAnim(HSD_FObj* fobj, void* obj,
                 FObjUpdateAnim(fobj, obj, obj_update);
                 return;
             }
-            case 1:
-            case 2: {
+            case FOBJ_LOAD_DATA0:
+            case FOBJ_LOAD_DATA: {
                 state = FObjLoadData(fobj);
                 break;
             }
-            case 3: {
+            case FOBJ_LOAD_WAIT: {
                 if ((fobj->flags & 0x80) != 0) {
                     FObjUpdateAnim(fobj, obj, obj_update);
                 }
@@ -423,7 +427,7 @@ void HSD_FObjInterpretAnim(HSD_FObj* fobj, void* obj,
 #ifdef MUST_MATCH
                         state =
 #endif
-                            3;
+                            FOBJ_LOAD_WAIT;
 
                     fterm = fobj->fterm;
                     fobj->time -= fobj->fterm;
@@ -458,10 +462,10 @@ void HSD_FObjInterpretAnim(HSD_FObj* fobj, void* obj,
 void HSD_FObjInterpretAnimAll(void* fobj, void* obj,
                               HSD_ObjUpdateFunc obj_update, f32 rate)
 {
-    HSD_FObj* fobjNew = (HSD_FObj*) fobj;
-    while (fobjNew != NULL) {
-        HSD_FObjInterpretAnim(fobjNew, obj, obj_update, rate);
-        fobjNew = fobjNew->next;
+    HSD_FObj* track = fobj;
+    while (track != NULL) {
+        HSD_FObjInterpretAnim(track, obj, obj_update, rate);
+        track = track->next;
     }
 }
 

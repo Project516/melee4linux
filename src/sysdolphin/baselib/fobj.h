@@ -69,10 +69,14 @@ union HSD_ObjData {
 
 HSD_ObjAllocData* HSD_FObjGetAllocData(void);
 void HSD_FObjInitAllocData(void);
+/// Frees one track record, without unlinking it or freeing stream bytes.
 void HSD_FObjRemove(HSD_FObj* fobj);
+/// Frees the complete track chain, but does not free its stream bytes.
 void HSD_FObjRemoveAll(HSD_FObj* fobj);
+/// Stores the low four state bits and retains the high four flag bits.
 u32 HSD_FObjSetState(HSD_FObj* fobj, u32 state);
 u32 HSD_FObjGetState(HSD_FObj* fobj);
+/// Resets each decoder to its stream start and requests the given frame.
 void HSD_FObjReqAnimAll(HSD_FObj* fobj, f32 startframe);
 void HSD_FObjStopAnim(HSD_FObj* fobj, void* obj, HSD_ObjUpdateFunc obj_update,
                       f32 rate);
@@ -83,6 +87,7 @@ void HSD_FObjInterpretAnim(HSD_FObj* fobj, void* obj,
                            HSD_ObjUpdateFunc obj_update, f32 rate);
 void HSD_FObjInterpretAnimAll(void* fobj, void* obj,
                               HSD_ObjUpdateFunc obj_update, f32 rate);
+/// Allocates a track chain and borrows each descriptor's stream bytes.
 HSD_FObj* HSD_FObjLoadDesc(HSD_FObjDesc* desc);
 HSD_FObj* HSD_FObjAlloc(void);
 void HSD_FObjFree(HSD_FObj* fobj);
