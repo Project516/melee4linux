@@ -25,9 +25,11 @@ field.
 | Items and projectiles | [`it/item.c`](../src/melee/it/item.c), [`it/itspawn.c`](../src/melee/it/itspawn.c), and [`it/kinds`](../src/melee/it/kinds) | Shared item creation and updates are separate from each item's behavior. Fighter-created projectiles also use this system. |
 | Menus and unlock rules | [`mn/mnmain.c`](../src/melee/mn/mnmain.c) and [`gm/gm_1601.c`](../src/melee/gm/gm_1601.c) | Menu code lives in `mn`. `gm_IsCKindUnlocked` answers whether a character is available. |
 | Cameras and on-screen interface | [`cm/camera.c`](../src/melee/cm/camera.c) and [`if`](../src/melee/if) | Start here for camera rules and in-game interface changes. Menus use `mn`. |
-| Disc files and asset loading | [`lb/lbdvd.c`](../src/melee/lb/lbdvd.c) and [`baselib/archive.c`](../src/sysdolphin/baselib/archive.c) | Follow queued reads and archive readiness in the [preload guide](code/dvd-preloading.md). `HSD_ArchiveParse` reads an archive and relocates its internal references. |
+| Disc files and asset loading | [`lb/lbdvd.c`](../src/melee/lb/lbdvd.c) and [`baselib/archive.c`](../src/sysdolphin/baselib/archive.c) | Follow queued reads and archive readiness in the [preload guide](code/dvd-preloading.md). The [archive guide](code/archive-loading.md) explains in-place relocation, symbol lookup, and buffer ownership. |
 | Controller sampling and button history | [`baselib/controller.c`](../src/sysdolphin/baselib/controller.c) | Follow raw samples through the queue and the master, copy, and game status arrays. See the [controller guide](code/controller-input.md). |
 | Rumble playback | [`baselib/rumble.c`](../src/sysdolphin/baselib/rumble.c) | The [rumble guide](code/rumble.md) explains scripts, priorities, and motor output. |
+| Animation playback | [`baselib/aobj.c`](../src/sysdolphin/baselib/aobj.c) | The [animation guide](code/animation-playback.md) explains frame requests, loop wrap, track updates, and end callbacks. |
+| Class memory | [`baselib/class.c`](../src/sysdolphin/baselib/class.c) | The [class memory guide](code/class-memory.md) explains size classes, piece splitting, and reuse. |
 | Object pools | [`baselib/objalloc.c`](../src/sysdolphin/baselib/objalloc.c) | `HSD_ObjAlloc` and `HSD_ObjFree` reuse fixed-size storage. See the [pool guide](code/object-allocation.md). |
 | Heap storage and scene changes | [`lb/lbheap.c`](../src/melee/lb/lbheap.c) | The [heap guide](code/heap-lifecycle.md) explains slot lifetimes, retained ranges, and allocation addresses versus descriptors. |
 | Game object callback order | [`baselib/gobjproc.c`](../src/sysdolphin/baselib/gobjproc.c) and [`baselib/gobj.c`](../src/sysdolphin/baselib/gobj.c) | The [process guide](code/game-object-processes.md) explains callback priorities, list ownership, and removal during a callback. |
@@ -159,6 +161,18 @@ Unit comparisons use each unit's `.text` start address. Units without a
 For JSON reports, `--percent lt` lists decreases in fuzzy match percentage.
 It also accepts `eq`, `ne`, and `gt`. Use these reports to locate changes.
 Use the full executable verification to accept a cleanup.
+
+To summarize percentage changes, first generate an objdiff change report:
+
+```sh
+build/tools/objdiff-cli report changes old-report.json build/GALE01/report.json \
+    -o build/GALE01/changes.json
+python tools/changes_fmt.py build/GALE01/changes.json --all
+```
+
+Without `--all`, the formatter lists decreases only. Add
+`-o build/GALE01/changes.md` to write Markdown tables. Input and output paths
+are relative to the directory where you run the formatter, or can be absolute.
 
 For a single-function experiment, the [context guide](code/context-generation.md)
 shows how to expand its source and headers with the build's include paths.
