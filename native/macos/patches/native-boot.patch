@@ -39,7 +39,7 @@ index ade0066..7ad89df 100644
    bool IsModuleActive() const;
    bool DispatchableAt(u32 address);
 diff --git a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
-index ddf0448..a0970b2 100644
+index ddf0448..dbf16c4 100644
 --- a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
 +++ b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
 @@ -4,6 +4,7 @@
@@ -58,7 +58,7 @@ index ddf0448..a0970b2 100644
  
  namespace
  {
-@@ -49,6 +51,74 @@ FilePtr OpenDispatchTrace()
+@@ -49,6 +51,88 @@ FilePtr OpenDispatchTrace()
  }
  }
  
@@ -87,6 +87,8 @@ index ddf0448..a0970b2 100644
 +
 +  while (ppc.pc != 0)
 +  {
++    if (ppc.downcount <= 0)
++      timing.Advance();
 +    if (m_native_dispatches - dispatches_before >= 10000000)
 +      Melee::RejectCPUFallback("native boot exceeded its dispatch limit", ppc.pc);
 +
@@ -106,6 +108,20 @@ index ddf0448..a0970b2 100644
 +      }
 +    }
 +
++    // SetupGCMemory installs one RFI at the initial syscall vector. The
++    // apploader uses it to synchronize cache operations before OSInit.
++    if ((ppc.pc == 0xc00u || ppc.pc == 0x80000c00u) &&
++        memory.Read_U32(ppc.pc) == 0x4c000064u)
++    {
++      SyncIn();
++      ppc_rfi(&m_guest, ppc.pc);
++      m_guest.downcount = -2;
++      SyncOut();
++      ++m_native_dispatches;
++      m_charged_cycles += 2;
++      continue;
++    }
++
 +    if (!DispatchableAt(ppc.pc))
 +      Melee::RejectCPUFallback("uncovered native boot address", ppc.pc);
 +    const u32 address = ppc.pc;
@@ -122,8 +138,6 @@ index ddf0448..a0970b2 100644
 +    SyncOut();
 +    if ((ppc.Exceptions & SYNC_EXCEPTION_MASK) != 0)
 +      power_pc.CheckExceptions();
-+    if (ppc.downcount <= 0)
-+      timing.Advance();
 +  }
 +
 +  std::fprintf(stderr, "[staticrecomp] native boot call 0x%08X: %llu dispatches\n",
