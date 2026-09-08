@@ -1,0 +1,10 @@
+--- a/src/runtime/dolphin_runtime.cpp
++++ b/src/runtime/dolphin_runtime.cpp
+@@ -612,6 +612,7 @@
+ 
+   if (!s_external_ui_common) {
+     UICommon::SetUserDirectory(impl->config.user_directory.string());
++    UICommon::CreateDirectories();
+     UICommon::Init();
+     impl->ui_initialized = true;
+   }
