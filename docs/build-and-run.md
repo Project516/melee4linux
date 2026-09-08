@@ -5,7 +5,8 @@ were tested on an Apple Silicon Mac with Dolphin 2606a and WiBo 1.1.0.
 The matching build reproduces Melee US v1.02 byte for byte.
 
 Run these commands from the repository root. For another operating system,
-start with the [existing dependency instructions](../.github/README.md#dependencies).
+start with the [upstream dependency instructions](https://github.com/doldecomp/melee/blob/ae5898ee0dfda41b34fdf846f7d680a33e14779d/.github/README.md#dependencies),
+but clone `https://github.com/t3dotgg/melee.git` for work on this fork.
 The [code map](code-map.md) explains where to make source changes.
 
 ## Get the original executable
@@ -80,12 +81,12 @@ python tools/verify.py
 ```
 
 The verification command builds the executable and progress report, checks
-the object differences, and checks the final executable hash. It uses the
-existing configuration. Its `--version` option selects the game version,
+the object differences, checks source completion, and checks the final
+executable hash. It uses the existing configuration. Its `--version` option selects the game version,
 and `--ninja` selects a Ninja executable. See
 [`tools/verify.py`](../tools/verify.py) for its options.
 
-The equivalent build commands are:
+To run the build and hash checks manually:
 
 ```sh
 ninja build/GALE01/main.dol build/GALE01/report.json
@@ -94,6 +95,10 @@ shasum -a 1 build/GALE01/main.dol
 ```
 
 Compare the final hash with `08e0bf20134dfcb260699671004527b2d6bb1a45`.
+These manual commands do not check source completion. The build can use an
+original object for a source file marked incomplete, so use `tools/verify.py`
+to accept a cleanup.
+
 `--no-always-apply` stops the build from automatically applying linked symbols
 back to the project configuration. With this option, plain `ninja` defaults
 to progress generation. Request `main.dol` explicitly so that you also link

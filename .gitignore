@@ -25,6 +25,10 @@ __pycache__
 .cache/
 
 # Original files
+*.iso
+*.gcm
+*.rvz
+*.wbfs
 orig/*/*
 !orig/*/sys
 orig/*/sys/*

@@ -1,6 +1,14 @@
-# <a name="heading"></a>Melee Coding Style
+# Contribution rules for the automated fork
 
-This document is to act as a guideline for how you should submit Pull Requests.
+This is Theo's fully automated cleanup fork. AI agents make, review, test, and
+land changes here. Do not assume that each change has human review.
+
+Submit work only to [t3dotgg/melee](https://github.com/t3dotgg/melee).
+Do not open pull requests, issues, or automated reviews on the official
+`doldecomp/melee` repository for work from this fork.
+
+The coding conventions below come from the original project. The fork workflow
+and automation rules in this document apply to this fork.
 
 # Sections
 
@@ -13,9 +21,12 @@ This document is to act as a guideline for how you should submit Pull Requests.
 
 # <a name="introduction"></a>Introduction
 
-This document aims to clarify the coding standard required for a Pull Request to be accepted.
+Read the [build guide](../docs/build-and-run.md) and [source map](../docs/code-map.md)
+before changing unfamiliar code. Use callers, data, and SDK definitions to support
+names and types. Keep uncertain meanings marked as uncertain.
 
-While not all code submitted at this time conforms to this standard, it is the intention of the project to correct it in time.
+Keep cleanup changes small and preserve gameplay behavior. Put gameplay mods on
+separate branches. Give parallel agents separate worktrees and owned files.
 
 # <a name="coding-style-and-formatting"></a>Coding Style and Formatting
 
@@ -44,7 +55,7 @@ In cases where there is a clear connection between a string embedded in the bina
 
 ```
 pip install -r reqs/dev.txt # Install the pre-commit package
-pre-commit # Install the commit hook
+pre-commit install # Install the commit hook
 pre-commit run --all-files # Run the hook once on existing code
 ```
 
@@ -267,7 +278,7 @@ Melee sometimes packs bits in to an unsigned integer type as bitflags and someti
 - `types.h` for each module contains relevant types primary to that module. It's difficult to discern where a type truly belongs, so we're not very strict about that. Types should be only `struct X` and/or `union X` definitions, not `typedef`s.
 - One `forward.h` corresponds to each `types.h` and is responsible for providing a `typedef` for each struct and union, and typedefs of function pointers. It is also the place to define `enum`s, global `const` simple types like integers that don't get emitted as symbols, and `#define` constants. The purpose of this separation is to avoid circular inclusions.
 - If an `inline` function is shared by multiple TUs but its function body isn't a real symbol, it goes in `inlines.h` for the most relevant module. An exception is made if that inline function contains an assert which proves its source file.
-- Documentation belongs in `*.dox` and should be kept out of the C and H files with minimal exceptions. `@todo` comments are allowed anywhere.
+- Keep short explanations of non-obvious behavior and matching constraints near the C or header code. Put longer walkthroughs in `docs/code/` or existing `*.dox` files. Avoid comments that only repeat the code.
 
 # <a name="compiler-notes"></a>Compiler Notes
 
@@ -285,15 +296,32 @@ Enum typedefs in this project always resolve to `int` currently.  This is a quir
 
 # <a name="prs"></a>Pull Requests
 
-If you just want to get started and match a function, you don't need to create a PR! You can just [create an issue](https://github.com/doldecomp/melee/issues/new) with your decomp.me link and a maintainer will add your code to the repo.
+- Rebase onto the latest `master` from `t3dotgg/melee` before opening a pull request.
+- Use `gh pr create --repo t3dotgg/melee --base master` to set the target explicitly.
+- Open a real pull request within this fork when a review record is useful.
+- State the problem, the change, and the actual checks run. Name the public model and harness that made the change. If the model is unknown, name only the harness.
+- Check the target repository before every push or GitHub write.
 
-If you're familiar with git and want to make changes locally, you can also [fork the repo](https://docs.github.com/en/get-started/quickstart/fork-a-repo) to your personal GitHub. When submitting code, try to group your changes into fewer but larger PRs, as it'a easier to review that way.
+For game code, headers, and build changes, run `python tools/verify.py` after
+integration. The US v1.02 executable must keep SHA-1
+`08e0bf20134dfcb260699671004527b2d6bb1a45`. The command checks source completion,
+runs `ninja diff`, and checks the complete executable. Do not change the expected
+hash or mark a source file incomplete to make a cleanup pass.
 
-After creating a pull request, please do not merge `master` into it (either through the GitHub UI or through `git`). It slows down the maintainer workflow.
+Run clang-format on edited C and header files. Run the source checker and focused
+tests for changed tools. Public CI also builds the native static library. It has
+no original game data, so its success does not certify a matching GameCube build.
+
+Keep game images, extracted assets, and built game files out of commits and
+GitHub uploads. Use ignored `orig/` and `build/` paths for local files.
 
 # <a name="ai"></a>AI Assistance
 
-Using AI to match functions is acceptable and frequently practiced. However, please adhere to the following guidelines:
-* Refrain from allowing AI to name fields in structs or other globally accessible identifiers.
-* Discourage AI from attempting to match data sections, instead focusing solely on code matches.
-* When submitting pull requests or issues, avoid including AI output in the body or in comments, and do not submit automated code reviews. An AI summary which is both relevant and concise may be included if it is wrapped in markdown comments (`>`) to differentiate it from human writing.
+Automated implementation and review are the purpose of this fork. Label the work
+clearly and do not present an agent's review as human review. Use independent
+review for changes whose meaning needs source or SDK evidence.
+
+Prefer local names and private helpers before changing shared interfaces.
+Preserve known original names and struct layouts. A matching executable proves
+that the binary is unchanged. It does not prove that new names or comments are
+correct.

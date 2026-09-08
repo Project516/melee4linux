@@ -44,7 +44,8 @@ belongs to one list.
 | `PENDING` | Queued or transferring through the SDK. | The DMA completion handler appends it to `DONE`. |
 | `DONE` | DMA finished, but the node is still in use. | The callback handler or blocking caller appends it to `FREE`. |
 
-All list changes save and disable interrupts, then restore the saved state.
+After initialization, list changes save and disable interrupts, then restore
+the saved state.
 The list traversal uses a pointer to a link. That link can be the list head or
 the `next` field of another node. Assigning `*node_link = node->next` therefore
 removes either a head node or a later node without a separate head case.
