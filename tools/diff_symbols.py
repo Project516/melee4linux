@@ -4,102 +4,82 @@ Compare two symbol map files and report matching virtual addresses with differen
 """
 
 import argparse
-import sys
 import json
+import re
+import sys
 from pathlib import Path
-
-import pyparsing as pp
 
 # Type alias: address -> (name, fuzzy_percent)
 # fuzzy_percent is always a float for JSON; for text it is None.
 SymbolData = dict[int, tuple[str, float | None]]
 
-# ---------- pyparsing grammars ----------
-
-# symbol line: identifier = .section:0xADDRESS; ...
-identifier = pp.Word(pp.alphas + "_", pp.alphanums + "_")
-hex_addr = pp.Combine("0x" + pp.Word(pp.hexnums))
-section = "." + pp.Word(pp.alphanums + "_")
-symbol_line_grammar = (
-    identifier("name")
-    + pp.Suppress("=")
-    + section
-    + pp.Suppress(":")
-    + hex_addr("address")
-    + pp.restOfLine
+SYMBOL_LINE = re.compile(
+    r"(?P<name>[^\s=]+)\s*=\s*[^\s:]+\s*:\s*"
+    r"(?P<address>0[xX][0-9a-fA-F]+)\s*;(?P<attributes>.*)"
 )
-
-# .text start line: .text       start:0x80005940 end:0x80005BB0
-# Use leave_whitespace() (snake_case) instead of deprecated leaveWhitespace()
-space = pp.White().leave_whitespace()
-text_start_grammar = (
-    pp.Literal(".text")
-    + space[...]
-    + "start:"
-    + hex_addr("addr")
-    + space[...]
-    + "end:"
-    + hex_addr("end")
+TEXT_RANGE = re.compile(
+    r"\.text\s+start:(?P<start>0[xX][0-9a-fA-F]+)\s+"
+    r"end:(?P<end>0[xX][0-9a-fA-F]+)(?:\s+.*)?"
 )
-
-# For splits.txt: file header and indented section lines
-# A header line: not indented, ends with colon
-file_header = (
-    (~pp.White()) + pp.Word(pp.alphas, pp.alphanums + "/._") + ":" + pp.LineEnd()
-)
-# An indented line: starts with whitespace
-indented_line = pp.LineStart() + pp.White() + pp.restOfLine
-
-# Parser for the whole file using IndentedBlock (official API)
-block = pp.Group(file_header + pp.IndentedBlock(indented_line))
-file_grammar = block[...] + pp.StringEnd()
+UNIT_HEADER = re.compile(r"(?P<name>[^\s:]+):(?:\s+.*)?")
+LABEL_ATTRIBUTE = re.compile(r"\btype:\s*label\b")
 
 
 def parse_text_symbols(content: str) -> SymbolData:
-    label_pattern = pp.Regex(r"\btype:label\b")
     result: SymbolData = {}
-    for line in content.splitlines():
-        line_stripped = line.strip()
-        if not line_stripped or label_pattern.search_string(line_stripped):
+    for line_number, line in enumerate(content.splitlines(), start=1):
+        line = line.strip()
+        if not line or line.startswith(("#", "//")):
             continue
-        try:
-            parsed = symbol_line_grammar.parse_string(line_stripped, parse_all=True)
-        except pp.ParseException:
+        parsed = SYMBOL_LINE.fullmatch(line)
+        if parsed is None:
+            raise ValueError(f"line {line_number}: expected a symbol assignment")
+        if LABEL_ATTRIBUTE.search(parsed["attributes"]):
             continue
-        name = parsed.name
-        addr = int(parsed.address, 16)
-        result.setdefault(addr, (name, None))
+        addr = int(parsed["address"], 16)
+        result.setdefault(addr, (parsed["name"], None))
     return result
 
 
 def parse_text_units(content: str) -> SymbolData:
+    """Use each unit's .text start address, ignoring section declarations and data."""
     result: SymbolData = {}
-    try:
-        parsed_blocks = file_grammar.parse_string(content, parse_all=True)
-    except pp.ParseException:
-        return result
-
-    for block in parsed_blocks:
-        header = block[0].strip()
-        if header.startswith("Sections:"):
+    unit_name = None
+    for line_number, raw_line in enumerate(content.splitlines(), start=1):
+        line = raw_line.partition("//")[0].partition("#")[0].strip()
+        if not line:
             continue
-        indented_lines = block[1]
-        for line in indented_lines:
-            try:
-                parsed = text_start_grammar.parse_string(line, parse_all=True)
-                addr = int(parsed.addr, 16)
-                if addr not in result:
-                    result[addr] = (header, None)
-            except pp.ParseException:
-                pass
+        if not raw_line[0].isspace():
+            parsed = UNIT_HEADER.fullmatch(line)
+            if parsed is None:
+                raise ValueError(f"line {line_number}: expected a unit header")
+            unit_name = parsed["name"]
+            continue
+        if unit_name is None:
+            raise ValueError(f"line {line_number}: section has no unit header")
+        if unit_name == "Sections" or line.split()[0] != ".text":
+            continue
+        parsed = TEXT_RANGE.fullmatch(line)
+        if parsed is None:
+            raise ValueError(f"line {line_number}: expected .text start and end addresses")
+        addr = int(parsed["start"], 16)
+        if int(parsed["end"], 16) < addr:
+            raise ValueError(f"line {line_number}: .text ends before it starts")
+        result.setdefault(addr, (unit_name, None))
     return result
 
 
+def parse_report(content: str) -> dict:
+    data = json.loads(content)
+    if not isinstance(data, dict) or not isinstance(data.get("units"), list):
+        raise ValueError("expected a report object with a units array")
+    if any(not isinstance(unit, dict) for unit in data["units"]):
+        raise ValueError("expected objects in the report's units array")
+    return data
+
+
 def parse_json_symbols(content: str) -> SymbolData:
-    try:
-        data = json.loads(content)
-    except json.JSONDecodeError:
-        return {}
+    data = parse_report(content)
 
     result: SymbolData = {}
     for unit in data.get("units", []):
@@ -129,10 +109,7 @@ def parse_json_symbols(content: str) -> SymbolData:
 
 
 def parse_json_units(content: str) -> SymbolData:
-    try:
-        data = json.loads(content)
-    except json.JSONDecodeError:
-        return {}
+    data = parse_report(content)
 
     result: SymbolData = {}
     for unit in data.get("units", []):
@@ -184,7 +161,7 @@ def read_file_content(filename: str) -> str:
         return sys.stdin.read()
     try:
         return Path(filename).read_text(encoding="utf-8")
-    except OSError as e:
+    except (OSError, UnicodeError) as e:
         print(f"Error reading {filename}: {e}", file=sys.stderr)
         sys.exit(1)
 
@@ -246,12 +223,20 @@ def main() -> None:
     baseline_content = read_file_content(args.baseline)
     current_content = read_file_content(args.current)
 
-    baseline_data = parse_symbols_dispatch(
-        baseline_content, text_mode=args.text, unit_mode=args.units
-    )
-    current_data = parse_symbols_dispatch(
-        current_content, text_mode=args.text, unit_mode=args.units
-    )
+    try:
+        baseline_data = parse_symbols_dispatch(
+            baseline_content, text_mode=args.text, unit_mode=args.units
+        )
+    except ValueError as e:
+        print(f"Error parsing {args.baseline}: {e}", file=sys.stderr)
+        sys.exit(1)
+    try:
+        current_data = parse_symbols_dispatch(
+            current_content, text_mode=args.text, unit_mode=args.units
+        )
+    except ValueError as e:
+        print(f"Error parsing {args.current}: {e}", file=sys.stderr)
+        sys.exit(1)
 
     if args.percent != "none":
         all_addrs = set(baseline_data.keys()) | set(current_data.keys())
