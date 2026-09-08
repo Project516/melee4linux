@@ -4,28 +4,31 @@
 
 #include <dolphin/os.h>
 
-static inline void Locate(HSD_Archive* archive)
+static inline void relocateInternalPointers(HSD_Archive* archive)
 {
-    u32 i;
-    u32* ptr;
+    u32 reloc_index;
+    u32* pointer_slot;
 
-    for (i = 0; i < archive->header.nb_reloc; i++) {
-        ptr = (u32*) (archive->data + archive->reloc_info[i].offset);
-        *ptr += (u32) archive->data;
+    for (reloc_index = 0; reloc_index < archive->header.nb_reloc;
+         reloc_index++)
+    {
+        pointer_slot =
+            (u32*) (archive->data + archive->reloc_info[reloc_index].offset);
+        *pointer_slot += (u32) archive->data;
     }
 }
 
 s32 HSD_ArchiveParse(HSD_Archive* archive, u8* src, size_t file_size)
 {
-    u32 offset;
+    u32 file_offset;
 
     if (archive == NULL) {
         return -1;
     }
 
     memset(archive, 0, sizeof(HSD_Archive));
-    archive->flags |= 1;
-    memcpy(archive, src, sizeof(HSD_ArchiveHeader));
+    archive->flags |= HSD_ARCHIVE_DONT_FREE;
+    memcpy(&archive->header, src, sizeof(HSD_ArchiveHeader));
 
     if (archive->header.file_size != file_size) {
         OSReport("HSD_ArchiveParse: byte-order mismatch! Please check data "
@@ -34,89 +37,97 @@ s32 HSD_ArchiveParse(HSD_Archive* archive, u8* src, size_t file_size)
         return -1;
     }
 
-    offset = sizeof(HSD_ArchiveHeader);
-    if (archive->header.data_size != 0) { // Body Size
+    file_offset = sizeof(HSD_ArchiveHeader);
+    if (archive->header.data_size != 0) {
         archive->data = src + sizeof(HSD_ArchiveHeader);
-        offset = archive->header.data_size + sizeof(HSD_ArchiveHeader);
+        file_offset = archive->header.data_size + sizeof(HSD_ArchiveHeader);
     }
-    if (archive->header.nb_reloc != 0) { // Relocation Size
-        archive->reloc_info =
-            (HSD_ArchiveRelocationInfo*) ((uintptr_t) src + offset);
-        offset = offset +
-                 archive->header.nb_reloc * sizeof(HSD_ArchiveRelocationInfo);
+    if (archive->header.nb_reloc != 0) {
+        archive->reloc_info = (HSD_ArchiveRelocationInfo*) (src + file_offset);
+        file_offset +=
+            archive->header.nb_reloc * sizeof(HSD_ArchiveRelocationInfo);
     }
-    if (archive->header.nb_public != 0) { // Root Size
-        archive->public_info =
-            (HSD_ArchivePublicInfo*) ((uintptr_t) src + offset);
-        offset =
-            offset + archive->header.nb_public * sizeof(HSD_ArchivePublicInfo);
+    if (archive->header.nb_public != 0) {
+        archive->public_info = (HSD_ArchivePublicInfo*) (src + file_offset);
+        file_offset +=
+            archive->header.nb_public * sizeof(HSD_ArchivePublicInfo);
     }
-    if (archive->header.nb_extern != 0) { // XRef Size
-        archive->extern_info =
-            (HSD_ArchiveExternInfo*) ((uintptr_t) src + offset);
-        offset =
-            offset + archive->header.nb_extern * sizeof(HSD_ArchiveExternInfo);
+    if (archive->header.nb_extern != 0) {
+        archive->extern_info = (HSD_ArchiveExternInfo*) (src + file_offset);
+        file_offset +=
+            archive->header.nb_extern * sizeof(HSD_ArchiveExternInfo);
     }
-    if (offset < archive->header.file_size) { // File Size
-        archive->symbols = (char*) ((uintptr_t) src + offset);
+    if (file_offset < archive->header.file_size) {
+        archive->symbols = (char*) (src + file_offset);
     }
 
-    archive->top_ptr = (void*) src;
-    Locate(archive);
+    archive->top_ptr = src;
+    relocateInternalPointers(archive);
 
     return 0;
 }
 
-void* HSD_ArchiveGetPublicAddress(HSD_Archive* archive, const char* symbols)
+void* HSD_ArchiveGetPublicAddress(HSD_Archive* archive,
+                                  const char* symbol_name)
 {
-    u32 i;
+    u32 public_index;
 
-    for (i = 0; i < archive->header.nb_public; i++) {
-        int comparison =
-            strcmp(archive->symbols + archive->public_info[i].symbol, symbols);
+    for (public_index = 0; public_index < archive->header.nb_public;
+         public_index++)
+    {
+        int comparison = strcmp(archive->symbols +
+                                    archive->public_info[public_index].symbol,
+                                symbol_name);
 
         if (comparison == 0) {
-            // If both strings are equal, we've found the node
-            return archive->data + archive->public_info[i].offset;
+            return archive->data + archive->public_info[public_index].offset;
         }
     }
 
     return NULL;
 }
 
-char* HSD_ArchiveGetExtern(HSD_Archive* archive, int offset)
+char* HSD_ArchiveGetExtern(HSD_Archive* archive, int extern_index)
 {
-    if (offset < 0 || archive->header.nb_extern <= (unsigned) offset) {
+    if (extern_index < 0 ||
+        archive->header.nb_extern <= (unsigned) extern_index)
+    {
         return NULL;
     }
 
-    return archive->symbols + archive->extern_info[offset].symbol;
+    return archive->symbols + archive->extern_info[extern_index].symbol;
 }
 
-void HSD_ArchiveLocateExtern(HSD_Archive* archive, const char* symbols,
-                             void* addr)
+void HSD_ArchiveLocateExtern(HSD_Archive* archive, const char* symbol_name,
+                             void* address)
 {
-    uintptr_t next;
-    uintptr_t offset = -1;
-    u32 i;
+    uintptr_t next_offset;
+    uintptr_t reference_offset = -1;
+    u32 extern_index;
 
-    for (i = 0; i < archive->header.nb_extern; i++) {
+    for (extern_index = 0; extern_index < archive->header.nb_extern;
+         extern_index++)
+    {
         int comparison =
-            strcmp(symbols, archive->symbols + archive->extern_info[i].symbol);
+            strcmp(symbol_name, archive->symbols +
+                                    archive->extern_info[extern_index].symbol);
 
         if (comparison == 0) {
-            offset = archive->extern_info[i].offset;
+            reference_offset = archive->extern_info[extern_index].offset;
             break;
         }
     }
 
-    if (offset == -1U) {
+    if (reference_offset == -1U) {
         return;
     }
 
-    while (offset != -1U && offset < archive->header.data_size) {
-        next = *(uintptr_t*) ((uintptr_t) archive->data + offset);
-        *(u32*) ((uintptr_t) archive->data + offset) = (uintptr_t) addr;
-        offset = next;
+    // Each slot holds the next data offset until it is replaced by address.
+    while (reference_offset != -1U &&
+           reference_offset < archive->header.data_size)
+    {
+        next_offset = *(uintptr_t*) (archive->data + reference_offset);
+        *(u32*) (archive->data + reference_offset) = (uintptr_t) address;
+        reference_offset = next_offset;
     }
 }
