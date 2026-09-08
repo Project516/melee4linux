@@ -12,6 +12,11 @@ Ninja supplies the include paths from that source's compiler flags and records
 header dependencies. A header change causes the context to rebuild. These
 targets do not compile or check the game executable.
 
+Compiler `-ir` paths also search subdirectories. Configuration expands each
+such path into normal include paths, starting with the directory itself and
+then its subdirectories in path order. Run configuration again after adding
+an include directory under one of these paths.
+
 For a manual run with the fighter source's include paths:
 
 ```sh

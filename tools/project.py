@@ -309,6 +309,22 @@ def file_is_asm(path: Path) -> bool:
     return path.suffix.lower() == ".s"
 
 
+def context_include_flags(cflags: List[str]) -> str:
+    """Expand compiler include paths for the textual context generator."""
+    include_dirs = []
+    for flag in cflags:
+        if flag.startswith(("-i ", "-I ", "-I+")):
+            include_dirs.append(flag[3:])
+        elif flag.startswith("-ir "):
+            directory = Path(flag[4:])
+            include_dirs.append(directory.as_posix())
+            include_dirs.extend(
+                path.as_posix() for path in sorted(directory.rglob("*"))
+                if path.is_dir()
+            )
+    return " ".join(f"-I {directory}" for directory in include_dirs)
+
+
 def file_is_c(path: Path) -> bool:
     return path.suffix.lower() == ".c"
 
@@ -1066,15 +1082,7 @@ def generate_build_ninja(
 
             # Add ctx build rule
             if obj.ctx_path is not None:
-                include_dirs = []
-                for flag in all_cflags:
-                    if (
-                        flag.startswith("-i ")
-                        or flag.startswith("-I ")
-                        or flag.startswith("-I+")
-                    ):
-                        include_dirs.append(flag[3:])
-                includes = " ".join([f"-I {d}" for d in include_dirs])
+                includes = context_include_flags(all_cflags)
                 excludes = " ".join([f"-x {d}" for d in config.context_exclude_globs])
                 defines = " ".join([f"-D {d}" for d in config.context_defines])
 
