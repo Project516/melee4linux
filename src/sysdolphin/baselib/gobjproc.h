@@ -6,6 +6,7 @@
 #include <sysdolphin/baselib/forward.h> // IWYU pragma: export
 
 struct HSD_GObjProc {
+    // Owner list uses child. Scheduler list uses next and prev.
     /* 0x00 */ HSD_GObjProc* child;
     /* 0x04 */ HSD_GObjProc* next;
     /* 0x08 */ HSD_GObjProc* prev;
@@ -21,7 +22,8 @@ struct HSD_GObjProc {
 /* 38FAA8 */ void HSD_GObjProc_8038FAA8(HSD_GObjProc* gproc);
 /* 38FC18 */ void HSD_GObjProc_8038FC18(HSD_GObjProc* gproc);
 /* 38FCE4 */ void HSD_GObjProc_8038FCE4(HSD_GObjProc* gproc);
-/* 38FD54 */ HSD_GObjProc* HSD_GObj_SetupProc(HSD_GObj*, HSD_GObjEvent, u8);
+/* 38FD54 */ HSD_GObjProc* HSD_GObj_SetupProc(HSD_GObj* gobj,
+                                              HSD_GObjEvent callback, u8 pri);
 /* 38FE24 */ void HSD_GObjProc_8038FE24(HSD_GObjProc* gproc);
 /* 38FED4 */ void HSD_GObjProc_8038FED4(HSD_GObj* gobj);
 

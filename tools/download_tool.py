@@ -15,7 +15,8 @@ import io
 import os
 import platform
 import shutil
-import stat
+import sys
+import tempfile
 import urllib.request
 import zipfile
 from typing import Callable, Dict
@@ -94,6 +95,7 @@ TOOLS: Dict[str, Callable[[str], str]] = {
 
 
 def download(url, response, output) -> None:
+    output.parent.mkdir(parents=True, exist_ok=True)
     if url.endswith(".zip"):
         data = io.BytesIO(response.read())
         with zipfile.ZipFile(data) as f:
@@ -104,15 +106,30 @@ def download(url, response, output) -> None:
                 os.chmod(os.path.join(root, name), 0o755)
         output.touch(mode=0o755)  # Update dir modtime
     else:
-        with open(output, "wb") as f:
-            shutil.copyfileobj(response, f)
-        st = os.stat(output)
-        os.chmod(output, st.st_mode | stat.S_IEXEC)
+        # Keep an existing tool usable until the replacement is complete.
+        temporary_file = tempfile.NamedTemporaryFile(dir=output.parent, delete=False)
+        temporary_path = Path(temporary_file.name)
+        try:
+            with temporary_file as destination:
+                shutil.copyfileobj(response, destination)
+            content_length = response.headers.get("Content-Length")
+            if content_length is not None:
+                expected_size = int(content_length)
+                actual_size = temporary_path.stat().st_size
+                if actual_size != expected_size:
+                    raise OSError(
+                        f"Incomplete download: expected {expected_size} bytes, "
+                        f"received {actual_size}."
+                    )
+            temporary_path.chmod(0o755)
+            temporary_path.replace(output)
+        finally:
+            temporary_path.unlink(missing_ok=True)
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("tool", help="Tool name")
+    parser.add_argument("tool", choices=TOOLS, help="Tool name")
     parser.add_argument("output", type=Path, help="output file path")
     parser.add_argument("--tag", help="GitHub tag", required=True)
     args = parser.parse_args()
@@ -133,15 +150,17 @@ def main() -> None:
             import ssl
         except ImportError:
             print(
-                '"certifi" module not found. Please install it using "python -m pip install certifi".'
+                '"certifi" module not found. Please install it using "python -m pip install certifi".',
+                file=sys.stderr,
             )
-            return
+            return 1
 
         with urllib.request.urlopen(
             req, context=ssl.create_default_context(cafile=certifi.where())
         ) as response:
             download(url, response, output)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

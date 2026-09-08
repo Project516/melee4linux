@@ -1,10 +1,35 @@
+#include "lbheap.h"
+
 #include <stddef.h> // offsetof
 
-#include "lbheap.static.h"
 #include "lbmemory.h"
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/initialize.h>
 #include <sysdolphin/baselib/memory.h>
+
+struct Heap {
+    /* 0x00 */ s32 id;
+    /* 0x04 */ Handle* handle;
+    /// The heap's base *address*. `s32` would sign-extend when it is cast
+    /// back to a pointer; the same four bytes on GameCube.
+    /* 0x08 */ uintptr_t start;
+    /* 0x0C */ u32 size;
+    /* 0x10 */ s32 type;
+    /* 0x14 */ s32 transient;
+    /* 0x18 */ LbHeapStatus status;
+};
+ASSERT_SIZE(struct Heap, 0x1C);
+
+struct lbHeap_HeapState {
+    /* 0x00 */ void* arena_lo;    /* inferred */
+    /* 0x04 */ void* arena_hi;    /* inferred */
+    /* 0x08 */ uintptr_t aram_lo; /* inferred */
+    /* 0x0C */ uintptr_t aram_hi; /* inferred */
+    /* 0x10 */ struct Heap heap_array[6];
+}; /* size = 0xB8 */
+ASSERT_SIZE(struct lbHeap_HeapState, 0xB8);
+
+/* 431FA0 */ static struct lbHeap_HeapState lbHeap_80431FA0;
 
 struct lbHeap_HeapDesc {
     u32 idx;
@@ -78,44 +103,47 @@ lbHeap_CreateOffsetViewIfDestroyed(struct lbHeap_HeapOffsetView* view)
     }
 }
 
-void lbHeap_800158D0(int arg0, int arg1)
+void lbHeap_800158D0(int heap_index, int transient)
 {
-    lbHeap_80431FA0.heap_array[arg0].transient = arg1;
+    lbHeap_80431FA0.heap_array[heap_index].transient = transient;
 }
 
-int lbHeap_800158E8(int arg0)
+int lbHeap_800158E8(int heap_index)
 {
-    return lbHeap_80431FA0.heap_array[arg0].transient;
+    return lbHeap_80431FA0.heap_array[heap_index].transient;
 }
 
 void lbHeap_80015900(void)
 {
-    s32 temp_r0;
+    uintptr_t reserved_end;
     struct lbHeap_HeapOffsetView* destroy_view;
-    s32 bounds_i;
-    struct Heap* bounds_heap;
+    s32 reserve_index;
+    struct Heap* reserved_heap;
     struct lbHeap_HeapOffsetView* create_view;
-    s32 heap_offset;
-    s32 create_i;
+    s32 view_offset;
+    s32 create_index;
     uintptr_t arena_lo;
     uintptr_t aram_lo;
     uintptr_t aram_hi;
     uintptr_t arena_hi;
     struct Heap* main_heap;
-    s32 destroy_i;
+    s32 destroy_index;
     struct Heap* aram_heap;
-    uintptr_t destroy_cursor;
+    uintptr_t view_address;
 
-    /// @remarks 0 and 1 are reserved for HSD and ARAM
-    destroy_i = 2;
-    destroy_cursor = (uintptr_t) &lbHeap_80431FA0.heap_array[destroy_i] -
-                     offsetof(struct lbHeap_HeapOffsetView, heap);
-    heap_offset = lbHeap_HeapViewOffset(2);
-    for (; destroy_i < 6; destroy_i++, destroy_cursor += sizeof(struct Heap),
-                          heap_offset += sizeof(struct Heap))
+    /* Slots 0 and 1 are rebuilt after retained heaps reserve their ranges. */
+    destroy_index = 2;
+    view_address = (uintptr_t) &lbHeap_80431FA0.heap_array[destroy_index] -
+                   offsetof(struct lbHeap_HeapOffsetView, heap);
+    view_offset = lbHeap_HeapViewOffset(2);
+    for (; destroy_index < 6; destroy_index++,
+                              view_address += sizeof(struct Heap),
+                              view_offset += sizeof(struct Heap))
     {
-        if (((struct Heap*) (destroy_cursor + 0x10))->transient == 1) {
-            destroy_view = lbHeap_GetHeapOffsetView(heap_offset);
+        if (((struct lbHeap_HeapOffsetView*) view_address)->heap.transient ==
+            1)
+        {
+            destroy_view = lbHeap_GetHeapOffsetView(view_offset);
             lbHeap_DestroyOffsetViewIfCreated(destroy_view);
         }
     }
@@ -125,27 +153,28 @@ void lbHeap_80015900(void)
     aram_lo = lbHeap_80431FA0.aram_lo;
     aram_hi = lbHeap_80431FA0.aram_hi;
 
-    for (bounds_i = 2; bounds_i < 6; bounds_i++) {
-        bounds_heap = &lbHeap_80431FA0.heap_array[bounds_i];
-        if (lbHeap_80431FA0.heap_array[bounds_i].transient == 0) {
-            switch (bounds_heap->type) {
+    /* Keep retained heaps outside the ranges available to HSD and ARAM. */
+    for (reserve_index = 2; reserve_index < 6; reserve_index++) {
+        reserved_heap = &lbHeap_80431FA0.heap_array[reserve_index];
+        if (lbHeap_80431FA0.heap_array[reserve_index].transient == 0) {
+            switch (reserved_heap->type) {
             case 1:
-                temp_r0 = bounds_heap->start + bounds_heap->size;
-                if (arena_lo < temp_r0) {
-                    arena_lo = temp_r0;
+                reserved_end = reserved_heap->start + reserved_heap->size;
+                if (arena_lo < reserved_end) {
+                    arena_lo = reserved_end;
                 }
                 break;
 
             case 2:
-                if (arena_hi > bounds_heap->start) {
-                    arena_hi = bounds_heap->start;
+                if (arena_hi > reserved_heap->start) {
+                    arena_hi = reserved_heap->start;
                 }
                 break;
 
             case 4:
-                temp_r0 = bounds_heap->start + bounds_heap->size;
-                if (aram_lo < temp_r0) {
-                    aram_lo = temp_r0;
+                reserved_end = reserved_heap->start + reserved_heap->size;
+                if (aram_lo < reserved_end) {
+                    aram_lo = reserved_end;
                 }
                 break;
             }
@@ -168,76 +197,77 @@ void lbHeap_80015900(void)
     aram_heap->status = LbHeapStatus_Create;
     aram_heap->type = 3;
 
-    for (create_i = 2, heap_offset = lbHeap_HeapViewOffset(2); create_i < 6;
-         create_i++, heap_offset += sizeof(struct Heap))
+    for (create_index = 2, view_offset = lbHeap_HeapViewOffset(2);
+         create_index < 6; create_index++, view_offset += sizeof(struct Heap))
     {
-        if (lbHeap_80431FA0.heap_array[create_i].transient == 0) {
-            create_view = lbHeap_GetHeapOffsetView(heap_offset);
+        if (lbHeap_80431FA0.heap_array[create_index].transient == 0) {
+            create_view = lbHeap_GetHeapOffsetView(view_offset);
             lbHeap_CreateOffsetViewIfDestroyed(create_view);
         }
     }
 }
 
-LbHeapStatus lbHeap_80015BB8(int arg0)
+LbHeapStatus lbHeap_80015BB8(int heap_index)
 {
-    return lbHeap_80431FA0.heap_array[arg0].status;
+    return lbHeap_80431FA0.heap_array[heap_index].status;
 }
 
-void* lbHeap_80015BD0(int heap_id, size_t size)
+void* lbHeap_80015BD0(int heap_index, size_t size)
 {
     Handle* result;
-    int enabled = OSDisableInterrupts();
-    struct Heap* p = &lbHeap_80431FA0.heap_array[heap_id];
+    int interrupts_enabled = OSDisableInterrupts();
+    struct Heap* heap = &lbHeap_80431FA0.heap_array[heap_index];
 
-    if (p->status == LbHeapStatus_Create) {
-        if (p->type == 0) {
-            int cur_heap = HSD_GetHeap();
-            HSD_SetHeap(p->id);
+    if (heap->status == LbHeapStatus_Create) {
+        if (heap->type == 0) {
+            int previous_heap_id = HSD_GetHeap();
+            HSD_SetHeap(heap->id);
             result = HSD_MemAlloc(size);
-            HSD_SetHeap(cur_heap);
+            HSD_SetHeap(previous_heap_id);
         } else {
-            result = lbMemory_80014FC8(p->handle, size);
-            if (p->type == 3) {
+            result = lbMemory_80014FC8(heap->handle, size);
+            if (heap->type == 3) {
                 result = result->x4_lo;
             }
         }
     } else {
         result = NULL;
     }
-    OSRestoreInterrupts(enabled);
+    OSRestoreInterrupts(interrupts_enabled);
     return result;
 }
 
-void lbHeap_80015CA8(int arg0, void* arg1)
+void lbHeap_80015CA8(int heap_index, void* address)
 {
-    int enabled = OSDisableInterrupts();
-    struct Heap* p = &lbHeap_80431FA0.heap_array[arg0];
+    int interrupts_enabled = OSDisableInterrupts();
+    struct Heap* p = &lbHeap_80431FA0.heap_array[heap_index];
 
     HSD_ASSERT(0x143, p->status == LbHeapStatus_Create);
     if (p->type == 0) {
-        int cur_heap = HSD_GetHeap();
+        int previous_heap_id = HSD_GetHeap();
         HSD_SetHeap(p->id);
-        HSD_Free(arg1);
-        HSD_SetHeap(cur_heap);
+        HSD_Free(address);
+        HSD_SetHeap(previous_heap_id);
     } else {
-        lbMemFreeToHeap(p->handle, arg1);
+        lbMemFreeToHeap(p->handle, address);
     }
-    OSRestoreInterrupts(enabled);
+    OSRestoreInterrupts(interrupts_enabled);
 }
 
-int lbHeap_80015D6C(u32 heap0, void (*cb)(u32), u32 heap1)
+int lbHeap_80015D6C(u32 heap_index, void (*callback)(u32), u32 callback_arg)
 {
-    int enabled = OSDisableInterrupts();
-    struct Heap* p = &lbHeap_80431FA0.heap_array[heap0];
-    int var_r30;
+    int interrupts_enabled = OSDisableInterrupts();
+    struct Heap* heap = &lbHeap_80431FA0.heap_array[heap_index];
+    int compaction_started;
 
-    if (heap0 <= 1) {
-        var_r30 = 0;
+    if (heap_index <= 1) {
+        compaction_started = 0;
     } else {
-        var_r30 = lbMemory_8001529C(p->handle, cb, heap1);
+        compaction_started =
+            lbMemory_8001529C(heap->handle, callback, callback_arg);
     }
-    OSRestoreInterrupts(enabled);
-    return var_r30;
+    OSRestoreInterrupts(interrupts_enabled);
+    return compaction_started;
 }
 
 char* lbHeap_803BA448[] = {
@@ -246,44 +276,46 @@ char* lbHeap_803BA448[] = {
 
 void lbHeap_80015DF8(void)
 {
-    ssize_t bytes;
-    struct Heap* p;
-    int i;
-    int var_r25;
+    ssize_t total_bytes;
+    struct Heap* heap;
+    int heap_index;
+    int free_bytes;
 
     OSReport("[lbHeap] -- Report --\n");
 
-    for (i = 0; i < 6; i++) {
-        OSReport("%s :", lbHeap_803BA448[i]);
-        p = &lbHeap_80431FA0.heap_array[i];
-        if (p->status == LbHeapStatus_Create) {
-            if (p->type == 0) {
-                var_r25 = OSCheckHeap(p->id);
+    for (heap_index = 0; heap_index < 6; heap_index++) {
+        OSReport("%s :", lbHeap_803BA448[heap_index]);
+        heap = &lbHeap_80431FA0.heap_array[heap_index];
+        if (heap->status == LbHeapStatus_Create) {
+            if (heap->type == 0) {
+                free_bytes = OSCheckHeap(heap->id);
             } else {
-                var_r25 = lbMemory_80014F7C(p->handle);
+                free_bytes = lbMemory_80014F7C(heap->handle);
             }
-            OSReport(" %5d KB + ", (p->size - var_r25) / 1024);
-            OSReport(" %5d KB( %8d)", var_r25 / 1024, var_r25);
+            OSReport(" %5d KB + ", (heap->size - free_bytes) / 1024);
+            OSReport(" %5d KB( %8d)", free_bytes / 1024, free_bytes);
         } else {
             OSReport("                         destroy");
         }
-        OSReport(" / %5d KB\n", p->size / 1024, p->size);
+        OSReport(" / %5d KB\n", heap->size / 1024, heap->size);
     }
 
-    bytes = (uintptr_t) lbHeap_80431FA0.arena_hi -
-            (uintptr_t) lbHeap_80431FA0.arena_lo;
-    OSReport("MainRAM Total : %5d KB( %8d)\n", bytes / 1024, bytes);
-    bytes = lbHeap_80431FA0.aram_hi - lbHeap_80431FA0.aram_lo;
-    OSReport("   ARAM Total : %5d KB( %8d)\n", bytes / 1024, bytes);
+    total_bytes = (uintptr_t) lbHeap_80431FA0.arena_hi -
+                  (uintptr_t) lbHeap_80431FA0.arena_lo;
+    OSReport("MainRAM Total : %5d KB( %8d)\n", total_bytes / 1024,
+             total_bytes);
+    total_bytes = lbHeap_80431FA0.aram_hi - lbHeap_80431FA0.aram_lo;
+    OSReport("   ARAM Total : %5d KB( %8d)\n", total_bytes / 1024,
+             total_bytes);
 }
 
 void lbHeap_80015F3C(void)
 {
-    int curr_idx;
-    int prev_idx;
-    struct Heap* curr_heap;
-    struct Heap* prev_heap;
-    struct lbHeap_HeapDesc* desc;
+    int heap_index;
+    int previous_index;
+    struct Heap* heap;
+    struct Heap* previous_heap;
+    struct lbHeap_HeapDesc* layout;
 
     HSD_GetNextArena(&lbHeap_80431FA0.arena_lo, &lbHeap_80431FA0.arena_hi);
     lbMemory_800154BC(&lbHeap_80431FA0.aram_lo, &lbHeap_80431FA0.aram_hi);
@@ -295,44 +327,44 @@ void lbHeap_80015F3C(void)
     lbHeap_ResetHeap(&lbHeap_80431FA0.heap_array[4]);
     lbHeap_ResetHeap(&lbHeap_80431FA0.heap_array[5]);
 
-    desc = lbHeap_803BA380;
-    while ((curr_idx = desc->idx) != 6) {
-        curr_heap = &lbHeap_80431FA0.heap_array[curr_idx];
+    layout = lbHeap_803BA380;
+    while ((heap_index = layout->idx) != 6) {
+        heap = &lbHeap_80431FA0.heap_array[heap_index];
 
-        curr_heap->type = desc->type;
-        curr_heap->size = desc->size;
-        prev_idx = desc->prev_idx;
-        if (prev_idx == 6) {
-            switch (curr_heap->type) {
+        heap->type = layout->type;
+        heap->size = layout->size;
+        previous_index = layout->prev_idx;
+        if (previous_index == 6) {
+            switch (heap->type) {
             case 3:
                 break;
             case 1:
-                curr_heap->start = (uintptr_t) lbHeap_80431FA0.arena_lo;
+                heap->start = (uintptr_t) lbHeap_80431FA0.arena_lo;
                 break;
             case 2:
-                curr_heap->start =
-                    (uintptr_t) lbHeap_80431FA0.arena_hi - curr_heap->size;
+                heap->start =
+                    (uintptr_t) lbHeap_80431FA0.arena_hi - heap->size;
                 break;
             case 4:
-                curr_heap->start = lbHeap_80431FA0.aram_lo;
+                heap->start = lbHeap_80431FA0.aram_lo;
                 break;
             }
         } else {
-            prev_heap = &lbHeap_80431FA0.heap_array[prev_idx];
-            switch (curr_heap->type) {
+            previous_heap = &lbHeap_80431FA0.heap_array[previous_index];
+            switch (heap->type) {
             case 3:
                 break;
             case 1:
-                curr_heap->start = prev_heap->start + prev_heap->size;
+                heap->start = previous_heap->start + previous_heap->size;
                 break;
             case 2:
-                curr_heap->start = prev_heap->start - curr_heap->size;
+                heap->start = previous_heap->start - heap->size;
                 break;
             case 4:
-                curr_heap->start = prev_heap->start + prev_heap->size;
+                heap->start = previous_heap->start + previous_heap->size;
                 break;
             }
         }
-        desc++;
+        layout++;
     }
 }

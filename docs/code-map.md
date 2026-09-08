@@ -25,10 +25,13 @@ field.
 | Items and projectiles | [`it/item.c`](../src/melee/it/item.c), [`it/itspawn.c`](../src/melee/it/itspawn.c), and [`it/kinds`](../src/melee/it/kinds) | Shared item creation and updates are separate from each item's behavior. Fighter-created projectiles also use this system. |
 | Menus and unlock rules | [`mn/mnmain.c`](../src/melee/mn/mnmain.c) and [`gm/gm_1601.c`](../src/melee/gm/gm_1601.c) | Menu code lives in `mn`. `gm_IsCKindUnlocked` answers whether a character is available. |
 | Cameras and on-screen interface | [`cm/camera.c`](../src/melee/cm/camera.c) and [`if`](../src/melee/if) | Start here for camera rules and in-game interface changes. Menus use `mn`. |
-| Disc files and asset loading | [`lb/lbdvd.c`](../src/melee/lb/lbdvd.c) and [`baselib/archive.c`](../src/sysdolphin/baselib/archive.c) | `HSD_ArchiveParse` reads an archive and relocates its internal references. `HSD_ArchiveGetPublicAddress` finds a named root. |
+| Disc files and asset loading | [`lb/lbdvd.c`](../src/melee/lb/lbdvd.c) and [`baselib/archive.c`](../src/sysdolphin/baselib/archive.c) | Follow queued reads and archive readiness in the [preload guide](code/dvd-preloading.md). `HSD_ArchiveParse` reads an archive and relocates its internal references. |
 | Controller sampling and button history | [`baselib/controller.c`](../src/sysdolphin/baselib/controller.c) | Follow raw samples through the queue and the master, copy, and game status arrays. See the [controller guide](code/controller-input.md). |
 | Rumble playback | [`baselib/rumble.c`](../src/sysdolphin/baselib/rumble.c) | The [rumble guide](code/rumble.md) explains scripts, priorities, and motor output. |
 | Object pools | [`baselib/objalloc.c`](../src/sysdolphin/baselib/objalloc.c) | `HSD_ObjAlloc` and `HSD_ObjFree` reuse fixed-size storage. See the [pool guide](code/object-allocation.md). |
+| Heap storage and scene changes | [`lb/lbheap.c`](../src/melee/lb/lbheap.c) | The [heap guide](code/heap-lifecycle.md) explains slot lifetimes, retained ranges, and allocation addresses versus descriptors. |
+| Game object callback order | [`baselib/gobjproc.c`](../src/sysdolphin/baselib/gobjproc.c) and [`baselib/gobj.c`](../src/sysdolphin/baselib/gobj.c) | The [process guide](code/game-object-processes.md) explains callback priorities, list ownership, and removal during a callback. |
+| Color overlays and fades | [`lb/lb_013B.c`](../src/melee/lb/lb_013B.c) | The [overlay guide](code/color-overlays.md) explains command streams, color blending, and expiration. |
 
 ## Follow a fighter state
 

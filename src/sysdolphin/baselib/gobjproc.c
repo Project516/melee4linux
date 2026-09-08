@@ -6,87 +6,71 @@
 
 extern HSD_ObjAllocData gobjproc_alloc_data;
 
-/**
- * Inserts a new GObjProc
- */
+// Last scheduled process for one object list and process priority.
+static inline HSD_GObjProc** processTailSlot(int p_link, int s_link)
+{
+    return &HSD_GObj_804D7844[p_link +
+                              s_link * (HSD_GObjLibInitData.p_link_max + 1)];
+}
+
 void HSD_GObjProc_8038FAA8(HSD_GObjProc* gproc)
 {
-    HSD_GObj* proc_gobj;
-    HSD_GObjProc* dst_proc;
+    HSD_GObj* owner;
+    HSD_GObjProc* predecessor;
     u8 s_link;
     int p_link;
 
-    proc_gobj = gproc->gobj;
+    owner = gproc->gobj;
     s_link = gproc->s_link;
-    p_link = proc_gobj->p_link;
+    p_link = owner->p_link;
 
-    // Scan through this GObjProc until we find a destination GObjProc
-    // with the same s_link where we can insert it.
-    //
-    // Start at the current proc's GObj, and scan backwards through
-    // all previous GObjs' procs.
-    if (HSD_GObj_804D7844[p_link + s_link * (HSD_GObjLibInitData.p_link_max +
-                                             1)] != NULL)
-    {
-        HSD_GObj* cur_gobj = proc_gobj;
-        while (cur_gobj != NULL) {
-            dst_proc = cur_gobj->proc;
-            while (dst_proc != NULL) {
-                if (dst_proc->s_link == s_link) {
-                    if (HSD_GObj_804D7844[p_link +
-                                          s_link *
-                                              (HSD_GObjLibInitData.p_link_max +
-                                               1)] == dst_proc)
-                    {
-                        HSD_GObj_804D7844[p_link +
-                                          s_link *
-                                              (HSD_GObjLibInitData.p_link_max +
-                                               1)] = gproc;
+    // Find the last process at this priority on the owner or a preceding
+    // object. The owner's child list starts with its newest process.
+    if (*processTailSlot(p_link, s_link) != NULL) {
+        HSD_GObj* candidate_owner = owner;
+        while (candidate_owner != NULL) {
+            predecessor = candidate_owner->proc;
+            while (predecessor != NULL) {
+                if (predecessor->s_link == s_link) {
+                    if (*processTailSlot(p_link, s_link) == predecessor) {
+                        *processTailSlot(p_link, s_link) = gproc;
                     }
-                    goto insert_at_dst;
+                    goto insert_after_predecessor;
                 }
-                dst_proc = dst_proc->child;
+                predecessor = predecessor->child;
             }
-            cur_gobj = cur_gobj->prev;
+            candidate_owner = candidate_owner->prev;
         }
     } else {
-        HSD_GObj_804D7844[p_link + s_link * (HSD_GObjLibInitData.p_link_max +
-                                             1)] = gproc;
+        *processTailSlot(p_link, s_link) = gproc;
     }
 
-    // If we got here, we still don't have a destination,
-    // so scan through the global GObjProcs instead.
+    // Otherwise use the tail of the nearest preceding object list.
     while (p_link-- != 0) {
-        dst_proc =
-            HSD_GObj_804D7844[p_link +
-                              s_link * (HSD_GObjLibInitData.p_link_max + 1)];
-        if (dst_proc != NULL) {
-            goto insert_at_dst;
+        predecessor = *processTailSlot(p_link, s_link);
+        if (predecessor != NULL) {
+            goto insert_after_predecessor;
         }
     }
 
-    // If we're still continuing, we haven't found a valid
-    // destination, so just put it at the front of the global list.
-    if (true) {
-        gproc->next = HSD_GObj_804D7840[s_link];
-        HSD_GObj_804D7840[s_link] = gproc;
-        gproc->prev = NULL;
-    } else {
-        // Alternatively, we jump here if we have a valid destination,
-        // so we insert it in the linked list.
-    insert_at_dst:
-        gproc->next = dst_proc->next;
-        dst_proc->next = gproc;
-        gproc->prev = dst_proc;
-    }
+    // No predecessor exists at this priority. Insert at the scheduler head.
+    gproc->next = HSD_GObj_804D7840[s_link];
+    HSD_GObj_804D7840[s_link] = gproc;
+    gproc->prev = NULL;
+    goto link_owner;
 
-    // We've now inserted the GObjProc properly, so regardless of insertion
-    // method, update any other struct fields / globals we need to.
+insert_after_predecessor:
+    gproc->next = predecessor->next;
+    predecessor->next = gproc;
+    gproc->prev = predecessor;
+
+link_owner:
     if (gproc->next != NULL) {
         gproc->next->prev = gproc;
     }
-    gproc->child = proc_gobj->proc;
-    proc_gobj->proc = gproc;
+    gproc->child = owner->proc;
+    owner->proc = gproc;
+    // Include an insertion immediately after the active process in traversal.
     if (HSD_GObj_804CE3E4.b0 && gproc->prev == HSD_GObj_804D7838 &&
         gproc->next == HSD_GObj_804D7830 && s_link == HSD_GObj_804D7834)
     {
@@ -101,18 +85,11 @@ void HSD_GObjProc_8038FC18(HSD_GObjProc* gproc)
     if (HSD_GObj_804CE3E4.b0 && gproc == HSD_GObj_804D7830) {
         HSD_GObj_804D7830 = gproc->next;
     }
-    if (gproc ==
-        HSD_GObj_804D7844[p_link +
-                          s_link * (HSD_GObjLibInitData.p_link_max + 1)])
-    {
+    if (gproc == *processTailSlot(p_link, s_link)) {
         if (gproc->prev != NULL && gproc->prev->gobj->p_link == p_link) {
-            HSD_GObj_804D7844[p_link +
-                              s_link * (HSD_GObjLibInitData.p_link_max + 1)] =
-                gproc->prev;
+            *processTailSlot(p_link, s_link) = gproc->prev;
         } else {
-            HSD_GObj_804D7844[p_link +
-                              s_link * (HSD_GObjLibInitData.p_link_max + 1)] =
-                NULL;
+            *processTailSlot(p_link, s_link) = NULL;
         }
     }
     if (gproc->prev != NULL) {
@@ -132,11 +109,11 @@ void HSD_GObjProc_8038FCE4(HSD_GObjProc* gproc)
     if (gobj->proc == gproc) {
         gobj->proc = gproc->child;
     } else {
-        HSD_GObjProc* cur = gobj->proc;
-        while (cur->child != gproc) {
-            cur = cur->child;
+        HSD_GObjProc* previous_proc = gobj->proc;
+        while (previous_proc->child != gproc) {
+            previous_proc = previous_proc->child;
         }
-        cur->child = gproc->child;
+        previous_proc->child = gproc->child;
     }
 }
 
@@ -145,7 +122,7 @@ static inline void assertProc(HSD_GObjProc* gproc)
     HSD_ASSERT(31, gproc);
 }
 
-HSD_GObjProc* HSD_GObj_SetupProc(HSD_GObj* gobj, void (*func)(HSD_GObj*),
+HSD_GObjProc* HSD_GObj_SetupProc(HSD_GObj* gobj, HSD_GObjEvent callback,
                                  u8 pri)
 {
     HSD_GObjProc* gproc;
@@ -159,13 +136,14 @@ HSD_GObjProc* HSD_GObj_SetupProc(HSD_GObj* gobj, void (*func)(HSD_GObj*),
     gproc->flags_1 = gproc->flags_2 = 0;
     gproc->flags_3 = 3;
     gproc->gobj = gobj;
-    gproc->on_invoke = func;
+    gproc->on_invoke = callback;
     HSD_GObjProc_8038FAA8(gproc);
     return gproc;
 }
 
 void HSD_GObjProc_8038FE24(HSD_GObjProc* gproc)
 {
+    // The scheduler frees its active process after the callback returns.
     if (!HSD_GObj_804CE3E4.b0 && gproc == HSD_GObj_804D7838) {
         HSD_GObj_804CE3E4.b2 = true;
     } else {
@@ -176,10 +154,10 @@ void HSD_GObjProc_8038FE24(HSD_GObjProc* gproc)
 
 void HSD_GObjProc_8038FED4(HSD_GObj* gobj)
 {
-    HSD_GObjProc* cur = gobj->proc;
-    while (cur != NULL) {
-        HSD_GObjProc* next = cur->child;
-        HSD_GObjProc_8038FE24(cur);
-        cur = next;
+    HSD_GObjProc* process = gobj->proc;
+    while (process != NULL) {
+        HSD_GObjProc* next_owned_process = process->child;
+        HSD_GObjProc_8038FE24(process);
+        process = next_owned_process;
     }
 }

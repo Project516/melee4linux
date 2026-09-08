@@ -8,143 +8,147 @@
 #include <sysdolphin/baselib/rumble.h>
 
 typedef bool (*lb_803BA248_fn)(ColorOverlay*);
-/* 013BB8 */ static bool lb_80013BB8(ColorOverlay* arg);
-/* 013BE4 */ static bool lb_80013BE4(ColorOverlay* arg);
-/* 013FF0 */ static bool lb_80013FF0(ColorOverlay* arg);
-/* 014234 */ static bool lb_80014234(ColorOverlay* arg);
+/* 013BB8 */ static bool lb_80013BB8(ColorOverlay* overlay);
+/* 013BE4 */ static bool lb_80013BE4(ColorOverlay* overlay);
+/* 013FF0 */ static bool lb_80013FF0(ColorOverlay* overlay);
+/* 014234 */ static bool lb_80014234(ColorOverlay* overlay);
 
 static struct Fighter_804D653C_t* lb_804D63C0;
 
-bool lb_80013BB0(ColorOverlay* arg)
+// Return completion before the per-frame color update.
+bool lb_80013BB0(ColorOverlay* overlay)
 {
     return true;
 }
 
-bool lb_80013BB8(ColorOverlay* arg0)
+bool lb_80013BB8(ColorOverlay* overlay)
 {
-    arg0->x0_timer += arg0->x8_ptr1->unk.timer;
-    ++arg0->x8_ptr1;
+    overlay->x0_timer += overlay->x8_ptr1->unk.timer;
+    ++overlay->x8_ptr1;
     return false;
 }
 
-bool lb_80013BE4(ColorOverlay* arg0)
+bool lb_80013BE4(ColorOverlay* overlay)
 {
-    arg0->x7C_color_enable = arg0->x7C_flag2 = false;
-    ++arg0->x8_ptr1;
+    overlay->x7C_color_enable = overlay->x7C_flag2 = false;
+    ++overlay->x8_ptr1;
     return false;
 }
 
-static bool lb_80013C18(ColorOverlay* arg0)
+// Read one RGBA word, initialize the float channels, and clear their steps.
+static inline void readLightColor(ColorOverlay* overlay)
 {
-    arg0->x7C_light_enable = arg0->x8_ptr1->light_rot2.light_enable;
-    arg0->x74_light_rot_x = arg0->x8_ptr1->light_rot2.x;
-    arg0->x78_light_rot_yz = arg0->x8_ptr1->light_rot2.yz;
-    ++arg0->x8_ptr1;
-    arg0->x50_light_color.r = arg0->x8_ptr1->light_color.r;
-    arg0->x50_light_color.g = arg0->x8_ptr1->light_color.g;
-    arg0->x50_light_color.b = arg0->x8_ptr1->light_color.b;
-    arg0->x50_light_color.a = arg0->x8_ptr1->light_color.a;
-    arg0->x54_light_red = arg0->x50_light_color.r;
-    arg0->x58_light_green = arg0->x50_light_color.g;
-    arg0->x5C_light_blue = arg0->x50_light_color.b;
-    arg0->x60_light_alpha = arg0->x50_light_color.a;
-    arg0->x70_lightblend_alpha = 0.0f;
-    arg0->x6C_lightblend_blue = 0.0f;
-    arg0->x68_lightblend_green = 0.0f;
-    arg0->x64_lightblend_red = 0.0f;
-    ++arg0->x8_ptr1;
-    arg0->x7C_flag2 = true;
+    overlay->x50_light_color.r = overlay->x8_ptr1->light_color.r;
+    overlay->x50_light_color.g = overlay->x8_ptr1->light_color.g;
+    overlay->x50_light_color.b = overlay->x8_ptr1->light_color.b;
+    overlay->x50_light_color.a = overlay->x8_ptr1->light_color.a;
+    overlay->x54_light_red = overlay->x50_light_color.r;
+    overlay->x58_light_green = overlay->x50_light_color.g;
+    overlay->x5C_light_blue = overlay->x50_light_color.b;
+    overlay->x60_light_alpha = overlay->x50_light_color.a;
+    overlay->x70_lightblend_alpha = 0.0f;
+    overlay->x6C_lightblend_blue = 0.0f;
+    overlay->x68_lightblend_green = 0.0f;
+    overlay->x64_lightblend_red = 0.0f;
+    ++overlay->x8_ptr1;
+}
+
+static bool lb_80013C18(ColorOverlay* overlay)
+{
+    overlay->x7C_light_enable = overlay->x8_ptr1->light_rot2.light_enable;
+    overlay->x74_light_rot_x = overlay->x8_ptr1->light_rot2.x;
+    overlay->x78_light_rot_yz = overlay->x8_ptr1->light_rot2.yz;
+    ++overlay->x8_ptr1;
+    readLightColor(overlay);
+    overlay->x7C_flag2 = true;
     return false;
 }
 
-static bool lb_80013D68(ColorOverlay* arg0)
+static bool lb_80013D68(ColorOverlay* overlay)
 {
-    ++arg0->x8_ptr1;
-    arg0->x50_light_color.r = arg0->x8_ptr1->light_color.r;
-    arg0->x50_light_color.g = arg0->x8_ptr1->light_color.g;
-    arg0->x50_light_color.b = arg0->x8_ptr1->light_color.b;
-    arg0->x50_light_color.a = arg0->x8_ptr1->light_color.a;
-    arg0->x54_light_red = arg0->x50_light_color.r;
-    arg0->x58_light_green = arg0->x50_light_color.g;
-    arg0->x5C_light_blue = arg0->x50_light_color.b;
-    arg0->x60_light_alpha = arg0->x50_light_color.a;
-    arg0->x70_lightblend_alpha = 0.0f;
-    arg0->x6C_lightblend_blue = 0.0f;
-    arg0->x68_lightblend_green = 0.0f;
-    arg0->x64_lightblend_red = 0.0f;
-    ++arg0->x8_ptr1;
+    ++overlay->x8_ptr1;
+    readLightColor(overlay);
     return false;
 }
 
-static bool lb_80013E3C(ColorOverlay* arg0)
+// The command word supplies the duration. The next word supplies RGBA.
+static bool lb_80013E3C(ColorOverlay* overlay)
 {
-    float f = arg0->x8_ptr1++->unk.timer;
-    arg0->x64_lightblend_red =
-        ((0.5f + arg0->x8_ptr1->light_color.r) - arg0->x50_light_color.r) / f;
-    arg0->x68_lightblend_green =
-        ((0.5f + arg0->x8_ptr1->light_color.g) - arg0->x50_light_color.g) / f;
-    arg0->x6C_lightblend_blue =
-        ((0.5f + arg0->x8_ptr1->light_color.b) - arg0->x50_light_color.b) / f;
-    arg0->x70_lightblend_alpha =
-        ((0.5f + arg0->x8_ptr1->light_color.a) - arg0->x50_light_color.a) / f;
-    ++arg0->x8_ptr1;
+    float blend_frames = overlay->x8_ptr1++->unk.timer;
+    overlay->x64_lightblend_red = ((0.5f + overlay->x8_ptr1->light_color.r) -
+                                   overlay->x50_light_color.r) /
+                                  blend_frames;
+    overlay->x68_lightblend_green = ((0.5f + overlay->x8_ptr1->light_color.g) -
+                                     overlay->x50_light_color.g) /
+                                    blend_frames;
+    overlay->x6C_lightblend_blue = ((0.5f + overlay->x8_ptr1->light_color.b) -
+                                    overlay->x50_light_color.b) /
+                                   blend_frames;
+    overlay->x70_lightblend_alpha = ((0.5f + overlay->x8_ptr1->light_color.a) -
+                                     overlay->x50_light_color.a) /
+                                    blend_frames;
+    ++overlay->x8_ptr1;
     return false;
 }
 
-static bool lb_80013F78(ColorOverlay* arg0)
+static bool lb_80013F78(ColorOverlay* overlay)
 {
-    arg0->x74_light_rot_x = arg0->x8_ptr1->light_rot1.x;
-    arg0->x78_light_rot_yz = arg0->x8_ptr1->light_rot1.yz;
-    ++arg0->x8_ptr1;
+    overlay->x74_light_rot_x = overlay->x8_ptr1->light_rot1.x;
+    overlay->x78_light_rot_yz = overlay->x8_ptr1->light_rot1.yz;
+    ++overlay->x8_ptr1;
     return false;
 }
 
-static bool lb_80013FF0(ColorOverlay* arg0)
+static bool lb_80013FF0(ColorOverlay* overlay)
 {
-    arg0->x7C_flag2 = false;
-    ++arg0->x8_ptr1;
+    overlay->x7C_flag2 = false;
+    ++overlay->x8_ptr1;
     return false;
 }
 
-static bool lb_80014014(ColorOverlay* arg0)
+static bool lb_80014014(ColorOverlay* overlay)
 {
-    arg0->x7C_color_enable = true;
-    ++arg0->x8_ptr1;
-    arg0->x2C_hex.r = arg0->x8_ptr1->light_color.r;
-    arg0->x2C_hex.g = arg0->x8_ptr1->light_color.g;
-    arg0->x2C_hex.b = arg0->x8_ptr1->light_color.b;
-    arg0->x2C_hex.a = arg0->x8_ptr1->light_color.a;
-    arg0->x30_color_red = arg0->x2C_hex.r;
-    arg0->x34_color_green = arg0->x2C_hex.g;
-    arg0->x38_color_blue = arg0->x2C_hex.b;
-    arg0->x3C_color_alpha = arg0->x2C_hex.a;
-    arg0->x4C_colorblend_alpha = 0.0f;
-    arg0->x48_colorblend_blue = 0.0f;
-    arg0->x44_colorblend_green = 0.0f;
-    arg0->x40_colorblend_red = 0.0f;
-    ++arg0->x8_ptr1;
+    overlay->x7C_color_enable = true;
+    ++overlay->x8_ptr1;
+    overlay->x2C_hex.r = overlay->x8_ptr1->light_color.r;
+    overlay->x2C_hex.g = overlay->x8_ptr1->light_color.g;
+    overlay->x2C_hex.b = overlay->x8_ptr1->light_color.b;
+    overlay->x2C_hex.a = overlay->x8_ptr1->light_color.a;
+    overlay->x30_color_red = overlay->x2C_hex.r;
+    overlay->x34_color_green = overlay->x2C_hex.g;
+    overlay->x38_color_blue = overlay->x2C_hex.b;
+    overlay->x3C_color_alpha = overlay->x2C_hex.a;
+    overlay->x4C_colorblend_alpha = 0.0f;
+    overlay->x48_colorblend_blue = 0.0f;
+    overlay->x44_colorblend_green = 0.0f;
+    overlay->x40_colorblend_red = 0.0f;
+    ++overlay->x8_ptr1;
     return false;
 }
 
-static bool lb_800140F8(ColorOverlay* arg0)
+static bool lb_800140F8(ColorOverlay* overlay)
 {
-    float f = arg0->x8_ptr1++->unk.timer;
-    arg0->x40_colorblend_red =
-        ((0.5f + arg0->x8_ptr1->light_color.r) - arg0->x2C_hex.r) / f;
-    arg0->x44_colorblend_green =
-        ((0.5f + arg0->x8_ptr1->light_color.g) - arg0->x2C_hex.g) / f;
-    arg0->x48_colorblend_blue =
-        ((0.5f + arg0->x8_ptr1->light_color.b) - arg0->x2C_hex.b) / f;
-    arg0->x4C_colorblend_alpha =
-        ((0.5f + arg0->x8_ptr1->light_color.a) - arg0->x2C_hex.a) / f;
-    ++arg0->x8_ptr1;
+    float blend_frames = overlay->x8_ptr1++->unk.timer;
+    overlay->x40_colorblend_red =
+        ((0.5f + overlay->x8_ptr1->light_color.r) - overlay->x2C_hex.r) /
+        blend_frames;
+    overlay->x44_colorblend_green =
+        ((0.5f + overlay->x8_ptr1->light_color.g) - overlay->x2C_hex.g) /
+        blend_frames;
+    overlay->x48_colorblend_blue =
+        ((0.5f + overlay->x8_ptr1->light_color.b) - overlay->x2C_hex.b) /
+        blend_frames;
+    overlay->x4C_colorblend_alpha =
+        ((0.5f + overlay->x8_ptr1->light_color.a) - overlay->x2C_hex.a) /
+        blend_frames;
+    ++overlay->x8_ptr1;
     return false;
 }
 
-bool lb_80014234(ColorOverlay* arg0)
+bool lb_80014234(ColorOverlay* overlay)
 {
-    arg0->x7C_color_enable = false;
-    ++arg0->x8_ptr1;
+    overlay->x7C_color_enable = false;
+    ++overlay->x8_ptr1;
     return false;
 }
 
@@ -156,56 +160,57 @@ lb_803BA248_fn lb_803BA248[] = {
     NULL,        NULL,
 };
 
-bool lb_80014258(Fighter_GObj* gobj, void* arg1, FtCmd2 cmd)
+bool lb_80014258(Fighter_GObj* gobj, void* overlay_data, FtCmd2 execute_cmd)
 {
-    ColorOverlay* co = arg1;
+    ColorOverlay* overlay = overlay_data;
 
-    if (co->x8_ptr1 != NULL) {
-        s32 timer = co->x0_timer;
+    if (overlay->x8_ptr1 != NULL) {
+        s32 timer = overlay->x0_timer;
         if (timer != 0) {
-            co->x0_timer = timer - 1;
+            overlay->x0_timer = timer - 1;
         }
     }
 
-    while (co->x8_ptr1 != NULL && co->x0_timer == 0) {
-        u32 opcode = co->x8_ptr1->unk.unk;
-        if (!Command_Execute((CommandInfo*) co, opcode)) {
+    while (overlay->x8_ptr1 != NULL && overlay->x0_timer == 0) {
+        u32 opcode = overlay->x8_ptr1->unk.unk;
+        if (!Command_Execute((CommandInfo*) overlay, opcode)) {
             if (opcode < 0x15U) {
-                u32 idx = opcode - 0xA;
-                if (lb_803BA248[idx](co)) {
+                u32 handler_index = opcode - 0xA;
+                if (lb_803BA248[handler_index](overlay)) {
                     return true;
                 }
             } else {
-                cmd(gobj, (CommandInfo*) co, (int) opcode);
+                execute_cmd(gobj, (CommandInfo*) overlay, (int) opcode);
             }
         }
     }
 
-    if (co->x7C_color_enable) {
-        co->x30_color_red += co->x40_colorblend_red;
-        co->x34_color_green += co->x44_colorblend_green;
-        co->x38_color_blue += co->x48_colorblend_blue;
-        co->x3C_color_alpha += co->x4C_colorblend_alpha;
-        co->x2C_hex.r = (u8) co->x30_color_red;
-        co->x2C_hex.g = (u8) co->x34_color_green;
-        co->x2C_hex.b = (u8) co->x38_color_blue;
-        co->x2C_hex.a = (u8) co->x3C_color_alpha;
+    if (overlay->x7C_color_enable) {
+        overlay->x30_color_red += overlay->x40_colorblend_red;
+        overlay->x34_color_green += overlay->x44_colorblend_green;
+        overlay->x38_color_blue += overlay->x48_colorblend_blue;
+        overlay->x3C_color_alpha += overlay->x4C_colorblend_alpha;
+        overlay->x2C_hex.r = (u8) overlay->x30_color_red;
+        overlay->x2C_hex.g = (u8) overlay->x34_color_green;
+        overlay->x2C_hex.b = (u8) overlay->x38_color_blue;
+        overlay->x2C_hex.a = (u8) overlay->x3C_color_alpha;
     }
-    if (co->x7C_flag2) {
-        co->x54_light_red += co->x64_lightblend_red;
-        co->x58_light_green += co->x68_lightblend_green;
-        co->x5C_light_blue += co->x6C_lightblend_blue;
-        co->x60_light_alpha += co->x70_lightblend_alpha;
-        co->x50_light_color.r = (u8) co->x54_light_red;
-        co->x50_light_color.g = (u8) co->x58_light_green;
-        co->x50_light_color.b = (u8) co->x5C_light_blue;
-        co->x50_light_color.a = (u8) co->x60_light_alpha;
+    if (overlay->x7C_flag2) {
+        overlay->x54_light_red += overlay->x64_lightblend_red;
+        overlay->x58_light_green += overlay->x68_lightblend_green;
+        overlay->x5C_light_blue += overlay->x6C_lightblend_blue;
+        overlay->x60_light_alpha += overlay->x70_lightblend_alpha;
+        overlay->x50_light_color.r = (u8) overlay->x54_light_red;
+        overlay->x50_light_color.g = (u8) overlay->x58_light_green;
+        overlay->x50_light_color.b = (u8) overlay->x5C_light_blue;
+        overlay->x50_light_color.a = (u8) overlay->x60_light_alpha;
     }
     {
-        s32 fc = co->x4_pri;
-        if (fc != 0) {
-            co->x4_pri = fc - 1;
-            if (co->x4_pri == 0) {
+        // x4_pri is a duration here. The animation table holds the priority.
+        s32 remaining_frames = overlay->x4_pri;
+        if (remaining_frames != 0) {
+            overlay->x4_pri = remaining_frames - 1;
+            if (overlay->x4_pri == 0) {
                 return true;
             }
         }
@@ -213,24 +218,26 @@ bool lb_80014258(Fighter_GObj* gobj, void* arg1, FtCmd2 cmd)
     return false;
 }
 
-void lb_80014498(ColorOverlay* arg0)
+void lb_80014498(ColorOverlay* overlay)
 {
-    arg0->x8_ptr1 = NULL;
-    arg0->x4_pri = 0;
-    arg0->x28_colanim.ptr = NULL;
-    arg0->x7C_color_enable = arg0->x7C_flag2 = false;
+    overlay->x8_ptr1 = NULL;
+    overlay->x4_pri = 0;
+    overlay->x28_colanim.ptr = NULL;
+    overlay->x7C_color_enable = overlay->x7C_flag2 = false;
 }
 
-bool lb_800144C8(ColorOverlay* arg0, Fighter_804D653C_t* arg1, int arg2,
-                 int arg3)
+bool lb_800144C8(ColorOverlay* overlay, Fighter_804D653C_t* animations,
+                 int animation_id, int duration)
 {
-    if (arg1[arg0->x28_colanim.i].unk4 <= arg1[arg2].unk4) {
-        arg0->x28_colanim.i = arg2;
-        arg0->x4_pri = arg3;
-        arg0->x8_ptr1 = arg1[arg2].unk;
-        arg0->x0_timer = 0;
-        arg0->xC_loop = 0;
-        arg0->x7C_color_enable = arg0->x7C_flag2 = false;
+    if (animations[overlay->x28_colanim.i].unk4 <=
+        animations[animation_id].unk4)
+    {
+        overlay->x28_colanim.i = animation_id;
+        overlay->x4_pri = duration;
+        overlay->x8_ptr1 = animations[animation_id].unk;
+        overlay->x0_timer = 0;
+        overlay->xC_loop = 0;
+        overlay->x7C_color_enable = overlay->x7C_flag2 = false;
         return true;
     }
     return false;
@@ -241,10 +248,10 @@ void lb_80014534(void)
     lbArchive_80017040(NULL, "LbRb.dat", &lb_804D63C0, "lbRumbleData", 0);
 }
 
-void lb_80014574(u8 arg0, int arg1, int arg2, int arg3)
+void lb_80014574(u8 channel, int id, int rumble_id, int duration)
 {
-    HSD_PadRumbleAdd(arg0, arg1, arg3 != 0 ? arg3 : -2, lb_804D63C0[arg2].unk4,
-                     lb_804D63C0[arg2].unk);
+    HSD_PadRumbleAdd(channel, id, duration != 0 ? duration : -2,
+                     lb_804D63C0[rumble_id].unk4, lb_804D63C0[rumble_id].unk);
 }
 
 void lb_800145C0(u8 slot)
@@ -255,8 +262,8 @@ void lb_800145C0(u8 slot)
 
 void lb_800145F4(void)
 {
-    int i;
-    for (i = 0; i < PAD_MAX_CONTROLLERS; i++) {
-        lb_800145C0(i);
+    int channel;
+    for (channel = 0; channel < PAD_MAX_CONTROLLERS; channel++) {
+        lb_800145C0(channel);
     }
 }
