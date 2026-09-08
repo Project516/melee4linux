@@ -1,0 +1,105 @@
+--- a/Source/Core/VideoCommon/ShaderCache.cpp
++++ b/Source/Core/VideoCommon/ShaderCache.cpp
+@@ -3,6 +3,10 @@
+ 
+ #include "VideoCommon/ShaderCache.h"
+ 
++#include <chrono>
++#include <cstdlib>
++#include <fstream>
++#include <string_view>
+ #include <utility>
+ 
+ #include <fmt/format.h>
+@@ -11,6 +15,8 @@
+ #include "Common/FileUtil.h"
+ #include "Common/MsgHandler.h"
+ #include "Core/Config/ConfigManager.h"
++#include "Core/Core.h"
++#include "Core/System.h"
+ 
+ #include "VideoCommon/AbstractGfx.h"
+ #include "VideoCommon/ConstantManager.h"
+@@ -1266,12 +1272,30 @@
+   if (iter != m_efb_copy_to_vram_pipelines.end())
+     return iter->second.get();
+ 
++  // Diagnostics run only on a cache miss and only when a log path is supplied.
++  using Clock = std::chrono::steady_clock;
++  const char* log_path = std::getenv("MELEE_EFB_PIPELINE_LOG");
++  const auto start = log_path ? Clock::now() : Clock::time_point{};
+   auto shader_code = TextureConversionShaderGen::GeneratePixelShader(m_api_type, uid.GetUidData());
+   auto shader = g_gfx->CreateShaderFromSource(
+       ShaderStage::Pixel, shader_code.GetBuffer(), nullptr,
+       fmt::format("EFB copy to VRAM pixel shader: {}", *uid.GetUidData()));
++  const auto shader_end = log_path ? Clock::now() : Clock::time_point{};
++  const auto log_compile = [&](bool success) {
++    if (!log_path)
++      return;
++    const auto pipeline_end = Clock::now();
++    std::ofstream log(log_path, std::ios_base::app);
++    using Milliseconds = std::chrono::duration<double, std::milli>;
++    log << fmt::format(
++        "efb_vram\t{}\t{:.3f}\t{:.3f}\t{:.3f}\t{}\t{}\n", m_prewarming_efb ? "prewarm" : "demand",
++        Milliseconds(start.time_since_epoch()).count(), Milliseconds(shader_end - start).count(),
++        Milliseconds(pipeline_end - shader_end).count(), success ? "ok" : "failed",
++        *uid.GetUidData());
++  };
+   if (!shader)
+   {
++    log_compile(false);
+     m_efb_copy_to_vram_pipelines.emplace(uid, nullptr);
+     return nullptr;
+   }
+@@ -1288,6 +1312,7 @@
+   config.framebuffer_state = RenderState::GetRGBA8FramebufferState();
+   config.usage = AbstractPipelineUsage::Utility;
+   auto iiter = m_efb_copy_to_vram_pipelines.emplace(uid, g_gfx->CreatePipeline(config));
++  log_compile(iiter.first->second != nullptr);
+   return iiter.first->second.get();
+ }
+ 
+@@ -1399,6 +1424,33 @@
+     }
+   }
+ 
++  const char* prewarm = std::getenv("MELEE_PREWARM_EFB");
++  if (prewarm && std::string_view(prewarm) == "1")
++  {
++    // MeleePad measured these four exact UIDs during Melee gameplay.
++    // Adapted from chrissotraidis/meleepad, patch 0020-efb-vram-prewarm.patch.
++    // Use the normal pipeline path so current backend settings still apply.
++    constexpr std::array formats = {EFBCopyFormat::R4, EFBCopyFormat::RGBA8, EFBCopyFormat::XFB,
++                                    EFBCopyFormat::XFB};
++    m_prewarming_efb = true;
++    for (size_t i = 0; i < formats.size(); ++i)
++    {
++      // Stay on the renderer thread and stop between compiles when quitting.
++      if (Core::GetState(Core::System::GetInstance()) == Core::State::Stopping)
++        break;
++      TextureConversionShaderGen::TCShaderUid uid;
++      uid.GetUidData()->dst_format = formats[i];
++      uid.GetUidData()->scale_by_half = i == formats.size() - 1;
++      if (!GetEFBCopyToVRAMPipeline(uid))
++      {
++        // A speculative failure must not prevent a later normal compile.
++        m_efb_copy_to_vram_pipelines.erase(uid);
++        break;
++      }
++    }
++    m_prewarming_efb = false;
++  }
++
+   return true;
+ }
+ 
+--- a/Source/Core/VideoCommon/ShaderCache.h
++++ b/Source/Core/VideoCommon/ShaderCache.h
+@@ -196,6 +196,7 @@
+   APIType m_api_type;
+   ShaderHostConfig m_host_config = {};
+   std::unique_ptr<AsyncShaderCompiler> m_async_shader_compiler;
++  bool m_prewarming_efb = false;
+ 
+   // Shared shaders
+   std::unique_ptr<AbstractShader> m_screen_quad_vertex_shader;
