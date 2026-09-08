@@ -112,6 +112,15 @@ def download(url, response, output) -> None:
         try:
             with temporary_file as destination:
                 shutil.copyfileobj(response, destination)
+            content_length = response.headers.get("Content-Length")
+            if content_length is not None:
+                expected_size = int(content_length)
+                actual_size = temporary_path.stat().st_size
+                if actual_size != expected_size:
+                    raise OSError(
+                        f"Incomplete download: expected {expected_size} bytes, "
+                        f"received {actual_size}."
+                    )
             temporary_path.chmod(0o755)
             temporary_path.replace(output)
         finally:

@@ -1,4 +1,5 @@
 import contextlib
+import http.client
 import io
 import stat
 import tempfile
@@ -10,6 +11,16 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from tools import download_tool
+
+
+def http_response(body, content_length=None):
+    headers = b"HTTP/1.1 200 OK\r\n"
+    if content_length is not None:
+        headers += f"Content-Length: {content_length}\r\n".encode("ascii")
+    socket = SimpleNamespace(makefile=lambda mode: io.BytesIO(headers + b"\r\n" + body))
+    response = http.client.HTTPResponse(socket)
+    response.begin()
+    return response
 
 
 class DownloadToolTests(unittest.TestCase):
@@ -28,10 +39,21 @@ class DownloadToolTests(unittest.TestCase):
         )
 
     def test_success_creates_an_executable_and_reports_success(self):
-        with patch("tools.download_tool.urllib.request.urlopen", return_value=io.BytesIO(b"tool")):
+        with patch("tools.download_tool.urllib.request.urlopen", return_value=http_response(b"tool")):
             self.assertEqual(download_tool.main(), 0)
         self.assertEqual(self.output.read_bytes(), b"tool")
         self.assertTrue(self.output.stat().st_mode & stat.S_IXUSR)
+        self.assertEqual(list(self.output.parent.iterdir()), [self.output])
+
+    def test_short_http_response_preserves_the_existing_tool(self):
+        self.output.parent.mkdir()
+        self.output.write_bytes(b"working tool")
+        # Sized HTTP reads can reach EOF without raising IncompleteRead.
+        with http_response(b"partial", content_length=1000) as response:
+            with self.assertRaisesRegex(OSError, "expected 1000 bytes, received 7"):
+                download_tool.download("https://example.test/tool", response, self.output)
+
+        self.assertEqual(self.output.read_bytes(), b"working tool")
         self.assertEqual(list(self.output.parent.iterdir()), [self.output])
 
     def test_interrupted_download_preserves_the_existing_tool(self):
@@ -53,7 +75,8 @@ class DownloadToolTests(unittest.TestCase):
         self.output.parent.mkdir()
         self.output.write_bytes(b"old tool")
 
-        download_tool.download("https://example.test/tool", io.BytesIO(b"new tool"), self.output)
+        with http_response(b"new tool", content_length=8) as response:
+            download_tool.download("https://example.test/tool", response, self.output)
 
         self.assertEqual(self.output.read_bytes(), b"new tool")
         self.assertEqual(list(self.output.parent.iterdir()), [self.output])
@@ -89,7 +112,7 @@ class DownloadToolTests(unittest.TestCase):
             patch("ssl.create_default_context", return_value=context) as create_context,
             patch(
                 "tools.download_tool.urllib.request.urlopen",
-                side_effect=[error, io.BytesIO(b"tool")],
+                side_effect=[error, http_response(b"tool")],
             ) as open_url,
         ):
             self.assertEqual(download_tool.main(), 0)
