@@ -859,6 +859,14 @@ add_compile_definitions(TARGET_PC)
 
 add_library(melee STATIC ${SOURCES})
 
+# Aurora lacks the C-stick direction masks from Melee's Dolphin headers.
+target_compile_definitions(melee PRIVATE
+    PAD_SUBSTICK_UP=0x100000
+    PAD_SUBSTICK_DOWN=0x200000
+    PAD_SUBSTICK_LEFT=0x400000
+    PAD_SUBSTICK_RIGHT=0x800000
+)
+
 target_include_directories(melee PRIVATE
     $ENV{AURORA_SRC}/include
     src
