@@ -25,6 +25,7 @@ You need your own US v1.02 game image. Game images, extracted assets, and execut
 - [Source code map](../docs/code-map.md). Find fighter logic, stages, menus, types, and engine code.
 - [Stale-move queue](../docs/code/stale-moves.md). How recorded attacks affect damage.
 - [ARAM transfer queue](../docs/code/aram-queue.md). How requests move between the CPU and audio memory.
+- [Memory allocator](../docs/code/memory-allocator.md), [file loading](../docs/code/file-loading.md), [player tracking](../docs/code/player-tracking.md), and [command streams](../docs/code/commands-and-time.md).
 - [Contribution rules](CONTRIBUTING.md) and [agent instructions](../AGENTS.md).
 
 After configuring the build, verify a cleanup with:

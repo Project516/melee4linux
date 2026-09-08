@@ -22,7 +22,7 @@ def search_string_in_files(search_string: str) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "List all headers containing a whole-word match, in path order. "
+            "List headers under src containing a whole-word match, in path order. "
             "Matches can be declarations, uses, or comments."
         )
     )

@@ -23,9 +23,11 @@ struct FigaTree {
     FigaTrack* tracks;
 };
 
-/* 01E60C */ HSD_FObj* fn_8001E60C(FigaTrack*, s8 frames);
-void lbAnim_8001E6D8(HSD_JObj*, FigaTree*, FigaTrack*, s8 frames);
-void lbAnim_8001E7E8(HSD_JObj*, FigaTree*, FigaTrack*, s8 frames);
-float lbAnim_8001E8F8(FigaTree*);
+/* 01E60C */ HSD_FObj* fn_8001E60C(FigaTrack* track, s8 track_count);
+void lbAnim_8001E6D8(HSD_JObj* jobj, FigaTree* tree, FigaTrack* track,
+                     s8 track_count);
+void lbAnim_8001E7E8(HSD_JObj* jobj, FigaTree* tree, FigaTrack* track,
+                     s8 track_count);
+float lbAnim_8001E8F8(FigaTree* tree);
 
 #endif

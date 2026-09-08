@@ -27,10 +27,15 @@ have separate counters.
 the caller. It counts a nonzero ID when that ID changes. `pl_80037DF4` records
 the supplied event without that comparison.
 
-Each counted event increments the total and its per-attack counter. Its category
-flags can also increment thrown-item, aerial, and special counters. A single
-event can increment more than one category. The `count_x1A0` and `count_x1A4`
-flags still have uncertain meanings, so their names remain unchanged.
+For attack IDs below `StatsAttack_Count`, each counted event increments the
+total and its per-attack counter. Its category flags can also increment
+thrown-item, aerial, and special counters. A single event can increment more
+than one category. The `count_x1A0` and `count_x1A4` flags still have uncertain
+meanings, so their names remain unchanged.
+
+`pl_80037C60` has a separate path for higher attack IDs. It increments
+`by_attack_hi` when the fighter's `x221F_b4` flag is clear. That path does not
+increment the total or the ordinary per-attack counters.
 
 `plAttack_8003759C` clears the specified player's counter groups and selected
 flags. It does not clear every byte in `plActionStats`. For example, it does not

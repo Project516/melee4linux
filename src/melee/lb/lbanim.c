@@ -6,22 +6,24 @@
 #include <sysdolphin/baselib/fobj.h>
 #include <sysdolphin/baselib/jobj.h>
 
-static HSD_FObj* lbAnim_InitFrames(FigaTrack* track, s8 frames)
+/* Sharing track initialization through an inline helper makes MWCC inline
+ * this function and removes its required out-of-line symbol. */
+static HSD_FObj* lbAnim_InitFrames(FigaTrack* track, s8 track_count)
 {
     HSD_FObj* fobj;
-    HSD_FObj* next = NULL;
+    HSD_FObj* previous = NULL;
     HSD_FObj* result;
     int i;
 
-    for (i = 0; i < frames; i++) {
+    for (i = 0; i < track_count; i++) {
         fobj = HSD_FObjAlloc();
         if (i == 0) {
             result = fobj;
         }
-        if (next != 0) {
-            next->next = fobj;
+        if (previous != NULL) {
+            previous->next = fobj;
         }
-        next = fobj;
+        previous = fobj;
         fobj->startframe = track->startframe;
         fobj->obj_type = track->obj_type;
         fobj->frac_value = track->frac_value;
@@ -35,15 +37,17 @@ static HSD_FObj* lbAnim_InitFrames(FigaTrack* track, s8 frames)
     return result;
 }
 
-HSD_FObj* fn_8001E60C(FigaTrack* track, s8 frames)
+HSD_FObj* fn_8001E60C(FigaTrack* track, s8 track_count)
 {
     HSD_FObj* fobj;
     HSD_FObj* prev = NULL;
     HSD_FObj* first = NULL;
     int i;
 
-    for (i = 0; i < frames; i++) {
-        if (track->obj_type != 5 && (u8) (track->obj_type - 6) > 1) {
+    for (i = 0; i < track_count; i++) {
+        if (track->obj_type != HSD_A_J_TRAX &&
+            (u8) (track->obj_type - HSD_A_J_TRAY) > 1)
+        {
             fobj = HSD_FObjAlloc();
             if (first == NULL) {
                 first = fobj;
@@ -59,6 +63,7 @@ HSD_FObj* fn_8001E60C(FigaTrack* track, s8 frames)
             fobj->ad_head = track->ad_head;
             fobj->length = track->length;
             fobj->flags = 0;
+            /* The original advances only when it accepts a track. */
             track++;
         }
     }
@@ -87,12 +92,12 @@ static inline void lbAnim_JObjSortAnim(HSD_AObj* aobj)
 }
 
 void lbAnim_8001E6D8(HSD_JObj* jobj, FigaTree* tree, FigaTrack* track,
-                     s8 frames)
+                     s8 track_count)
 {
     HSD_AObj* aobj;
     PAD_STACK(8);
 
-    if (jobj != NULL && frames != 0) {
+    if (jobj != NULL && track_count != 0) {
         if (jobj->aobj != NULL) {
             HSD_AObjRemove(jobj->aobj);
         }
@@ -100,7 +105,7 @@ void lbAnim_8001E6D8(HSD_JObj* jobj, FigaTree* tree, FigaTrack* track,
         HSD_AObjSetFlags(aobj, tree->flags);
         HSD_AObjSetRewindFrame(aobj, 0.0F);
         HSD_AObjSetEndFrame(aobj, tree->frames);
-        HSD_AObjSetFObj(aobj, lbAnim_InitFrames(track, frames));
+        HSD_AObjSetFObj(aobj, lbAnim_InitFrames(track, track_count));
         jobj->aobj = aobj;
         lbAnim_JObjSortAnim(jobj->aobj);
         if (tree->type & 1) {
@@ -112,12 +117,12 @@ void lbAnim_8001E6D8(HSD_JObj* jobj, FigaTree* tree, FigaTrack* track,
 }
 
 void lbAnim_8001E7E8(HSD_JObj* jobj, FigaTree* tree, FigaTrack* track,
-                     s8 frames)
+                     s8 track_count)
 {
     HSD_AObj* aobj;
     PAD_STACK(8);
 
-    if (jobj != NULL && frames != 0) {
+    if (jobj != NULL && track_count != 0) {
         if (jobj->aobj != NULL) {
             HSD_AObjRemove(jobj->aobj);
         }
@@ -125,7 +130,7 @@ void lbAnim_8001E7E8(HSD_JObj* jobj, FigaTree* tree, FigaTrack* track,
         HSD_AObjSetFlags(aobj, tree->flags);
         HSD_AObjSetRewindFrame(aobj, 0.0F);
         HSD_AObjSetEndFrame(aobj, tree->frames);
-        HSD_AObjSetFObj(aobj, fn_8001E60C(track, frames));
+        HSD_AObjSetFObj(aobj, fn_8001E60C(track, track_count));
         jobj->aobj = aobj;
         lbAnim_JObjSortAnim(jobj->aobj);
         if (tree->type & 1) {
