@@ -1,5 +1,5 @@
 diff --git a/macos/MeleeFrontend.inc b/macos/MeleeFrontend.inc
-index 0daf356..e6f2463 100644
+index 0daf356..8548fcb 100644
 --- a/macos/MeleeFrontend.inc
 +++ b/macos/MeleeFrontend.inc
 @@ -5,6 +5,8 @@
@@ -39,6 +39,15 @@ index 0daf356..e6f2463 100644
  - (void)fastLoading:(NSButton*)sender
  {
    if (!getenv("MELEE_APP_BUNDLE") || NetPlay::IsNetPlayRunning()) return;
+@@ -275,7 +291,7 @@ extern std::atomic<bool> g_melee_menu_open;
+ - (void)fullscreen:(id)sender { [self.game toggleFullScreen:nil]; }
+ - (void)showSaves:(id)sender { [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:[self.preferencesPath stringByDeletingLastPathComponent].stringByDeletingLastPathComponent]]; }
+ - (void)showLogs:(id)sender { [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Library/Logs/t3.melee.native"]]]; }
+-- (void)refresh:(id)sender { g_controller_interface.RefreshDevices(); [self settings:nil]; [self.tabs selectTabViewItemAtIndex:3]; }
++- (void)refresh:(id)sender { g_controller_interface.RefreshDevices(); [self settings:nil]; [self.tabs selectTabViewItemWithIdentifier:@"Input"]; }
+ - (void)controller:(NSPopUpButton*)sender
+ {
+   Common::IniFile ini; const auto path=File::GetUserPath(D_CONFIG_IDX)+"GCPadNew.ini"; ini.Load(path);
 @@ -345,6 +361,28 @@ extern "C" void MeleeApplyMediaPreferences()
    @autoreleasepool {
      NSString* path=[[NSString stringWithUTF8String:File::GetUserPath(D_CONFIG_IDX).c_str()] stringByAppendingPathComponent:@"MeleeFrontend.plist"];

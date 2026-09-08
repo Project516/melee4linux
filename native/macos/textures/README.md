@@ -23,8 +23,8 @@ uploaded texture.
 
 Packs use 16x anisotropic filtering. The original per-texture filtering rules
 still protect textures that use point filtering. Full DDS mip chains reduce
-shimmer on distant objects. The PNG loader in this runtime reads only one
-level, so production packs should use DDS files with all mip levels. The
+shimmer on distant objects. PNG textures can use separate `_mip1.png`, `_mip2.png`, and later files.
+Production packs use DDS to keep the complete chain in one file. The
 legacy RGBA8 DDS masks are R `0x000000ff`, G `0x0000ff00`, B `0x00ff0000`,
 and A `0xff000000`. This format preserves colors and alpha without block
 compression. The runtime also supports BC7 DDS files.
@@ -53,3 +53,36 @@ The test failed on the original resource code because its pixel buffer stayed
 alive after eviction. It passed with the patch. All five edited translation
 units compiled with the native runtime's ARM64 flags. These checks do not
 replace a full app build or visual tests with the finished asset pack.
+
+## Ending stills
+
+`ending-stills.patch` adds aliases for the 75 `GmRegend*.thp` ending pictures.
+These files are JPEG stills. They use a different descriptor from the MTH
+movies. The hook checks Melee USA v1.02, native mode, the exact 560 by 416
+image dimensions, live YUV plane addresses, and valid guest memory ranges.
+It changes no game memory or drawing code.
+
+The alias contains XXH64 of the complete original compressed file and the
+plane letter. For example, `tex1_still_<16 hex digits>_y.dds`. This avoids
+hash differences between JPEG decoders. All three planes can use the full
+upscaled image dimensions. The game keeps its YUV conversion shader.
+
+After the 75 RGB stills are upscaled, build their planes with:
+
+```sh
+python tools/texture_upscale/still_planes.py \
+  --disc-files build/disc/files --upscaled build/upscaled-stills \
+  --output build/texture-pack/GALE01/ending-stills
+```
+
+The tool writes a manifest with each original filename and every output
+hash. It replicates each intensity into all RGBA channels. The alpha channel
+is required for the game's green calculation. Plane mipmaps use data-channel
+averaging. The conversion keeps full chroma resolution. Its RGB round-trip
+error in the focused color test is at most four channel values, with mean
+error below 1.5. This test does not measure the game's TEV rounding.
+
+The optional hook compiles with the native runtime's ARM64 flags. Descriptor
+checks cover wrong dimensions, reused addresses, short descriptors, and
+out-of-range source data. An actual ending screen still needs visual testing
+in the built app before claiming coverage in gameplay.
