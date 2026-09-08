@@ -36,24 +36,24 @@ HSD_SList* HSD_SListAlloc(void)
     return list;
 }
 
-HSD_SList* HSD_SListAllocAndAppend(HSD_SList* next, void* data)
+HSD_SList* HSD_SListAllocAndAppend(HSD_SList* list, void* data)
 {
-    HSD_SList* list;
+    HSD_SList* node;
 
-    list = HSD_SListAlloc();
-    list->data = data;
+    node = HSD_SListAlloc();
+    node->data = data;
 
-    return HSD_SListAppendList(next, list);
+    return HSD_SListAppendList(list, node);
 }
 
-HSD_SList* HSD_SListAllocAndPrepend(HSD_SList* next, void* data)
+HSD_SList* HSD_SListAllocAndPrepend(HSD_SList* list, void* data)
 {
-    HSD_SList* list;
+    HSD_SList* node;
 
-    list = HSD_SListAlloc();
-    list->data = data;
+    node = HSD_SListAlloc();
+    node->data = data;
 
-    return HSD_SListPrependList(next, list);
+    return HSD_SListPrependList(list, node);
 }
 
 HSD_SList* HSD_SListAppendList(HSD_SList* list, HSD_SList* next)

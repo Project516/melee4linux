@@ -25,7 +25,7 @@ void HSD_IDSetup(void)
 
 static inline u32 hash(u32 id)
 {
-    return id % 0x65;
+    return id % ARRAY_SIZE(default_table.table);
 }
 
 static inline IDEntry* IDEntryAlloc(void)
