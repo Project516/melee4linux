@@ -11,7 +11,11 @@ try:
     import numpy as np
     from PIL import Image
 
-    from tools.texture_upscale.quality_report import check_texture, dds_layout
+    from tools.texture_upscale.quality_report import (
+        check_texture,
+        dds_layout,
+        unexpected_files,
+    )
 except ModuleNotFoundError as error:
     raise unittest.SkipTest(
         "Install the texture requirements for quality checks"
@@ -77,6 +81,17 @@ class TextureQualityTests(unittest.TestCase):
         struct.pack_into("<I", data, 4 + 6 * 4, 1)
         with self.assertRaisesRegex(ValueError, "complete mip chain"):
             dds_layout(data)
+
+    def test_obsolete_manifest_files_are_reported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "images").mkdir()
+            (root / "images/tex1_expected.png").touch()
+            (root / "images/tex1_obsolete.png").touch()
+            self.assertEqual(
+                unexpected_files([{"name": "tex1_expected"}], root),
+                ["images/tex1_obsolete.png"],
+            )
 
     def test_detects_opaque_source_becoming_transparent(self):
         with tempfile.TemporaryDirectory() as directory:

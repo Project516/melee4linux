@@ -214,6 +214,21 @@ def contacts(selection, source_directory, pack, destination):
     return recorded
 
 
+def unexpected_files(textures, pack):
+    """Find obsolete extracted texture files left by a previous manifest."""
+    names = {texture["name"] for texture in textures}
+    extras = []
+    for directory, extension in (
+        ("records", ".json"),
+        ("images", ".png"),
+        ("Textures/GALE01", ".dds"),
+    ):
+        for path in (pack / directory).glob(f"tex1_*{extension}"):
+            if path.stem not in names:
+                extras.append(str(path.relative_to(pack)))
+    return sorted(extras)
+
+
 def audit(manifest_path, pack, destination, per_category=12, workers=4):
     manifest = json.loads(manifest_path.read_text())
     textures = manifest["textures"]
@@ -240,6 +255,7 @@ def audit(manifest_path, pack, destination, per_category=12, workers=4):
             measured, key=lambda result: abs(result["coverage_delta"]), reverse=True
         )[:32],
     }
+    report["unexpected_files"] = unexpected_files(textures, pack)
     report["contact_samples"] = contacts(
         sample_textures(textures, per_category), manifest_path.parent, pack, destination
     )
@@ -258,7 +274,7 @@ def audit(manifest_path, pack, destination, per_category=12, workers=4):
             indent=2,
         )
     )
-    return not failures
+    return not failures and not report["unexpected_files"]
 
 
 def main():
