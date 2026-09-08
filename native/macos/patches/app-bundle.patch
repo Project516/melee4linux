@@ -1,0 +1,68 @@
+diff --git a/macos/MeleeFrontend.inc b/macos/MeleeFrontend.inc
+--- a/macos/MeleeFrontend.inc
++++ b/macos/MeleeFrontend.inc
+@@ -32,7 +32,7 @@
+ - (NSTextField*)label:(NSString*)text at:(NSRect)rect in:(NSView*)view
+ {
+   NSTextField* label = [NSTextField wrappingLabelWithString:text];
+-  label.frame = rect; label.textColor = NSColor.labelColor;
++  label.frame = rect; label.textColor = NSColor.whiteColor;
+   [view addSubview:label]; return label;
+ }
+ - (NSButton*)button:(NSString*)title action:(SEL)action at:(NSRect)rect in:(NSView*)view
+@@ -58,7 +58,7 @@
+       styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
+   self.panel.title = @"Melee • Home";
+   self.panel.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+-  self.panel.backgroundColor = [NSColor colorWithRed:0.065 green:0.075 blue:0.11 alpha:0.96];
++  self.panel.backgroundColor = NSColor.blackColor;
+   self.panel.hidesOnDeactivate = NO;
+   self.panel.collectionBehavior = NSWindowCollectionBehaviorFullScreenAuxiliary;
+   NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:@"Melee Home…" action:@selector(home:) keyEquivalent:@"\e"];
+@@ -94,9 +94,13 @@
+   [self label:@"MACOS  /  NATIVE RECOMPILATION" at:NSMakeRect(52,303,550,24) in:v];
+   [self button:@"Play" action:@selector(play:) at:NSMakeRect(48,220,260,48) in:v];
+   [self button:@"Settings" action:@selector(settings:) at:NSMakeRect(48,159,260,48) in:v];
+-  [self button:@"Netplay" action:@selector(netplay:) at:NSMakeRect(330,159,260,48) in:v];
++  if (!getenv("MELEE_APP_BUNDLE"))
++    [self button:@"Netplay" action:@selector(netplay:) at:NSMakeRect(330,159,260,48) in:v];
+   [self button:@"Quit" action:@selector(quit:) at:NSMakeRect(48,98,260,48) in:v];
+-  [self label:@"Escape opens Home • ⌘, opens Settings\nYour game and memory card stay in this workspace." at:NSMakeRect(52,30,565,48) in:v];
++  NSString* location = getenv("MELEE_APP_BUNDLE")
++      ? @"Escape opens Home. Command-comma opens Settings.\nSaves are in Application Support/t3.melee.native."
++      : @"Escape opens Home. Command-comma opens Settings.\nYour game and memory card stay in this workspace.";
++  [self label:location at:NSMakeRect(52,30,565,48) in:v];
+   [self position];
+ }
+ - (void)netplay:(id)sender
+@@ -166,10 +170,19 @@
+   [self button:@"Resume game" action:@selector(play:) at:NSMakeRect(480,20,155,34) in:root];
+   NSView* v = [self tab:@"General"];
+   [self label:@"Game data" at:NSMakeRect(20,265,550,25) in:v];
+-  [self label:@"Choose a Melee USA revision 2 ISO, GCM, CISO, or extracted game folder. Imports are checked against this build and take effect next launch." at:NSMakeRect(20,185,560,75) in:v];
+-  [self button:@"Choose disc image or game folder…" action:@selector(chooseGame:) at:NSMakeRect(20,135,285,35) in:v];
++  if (getenv("MELEE_APP_BUNDLE"))
++  {
++    [self label:@"This app includes the game data from your verified Melee USA revision 2 disc. It can run without the build folder." at:NSMakeRect(20,185,560,75) in:v];
++    [self button:@"Show log folder" action:@selector(showLogs:) at:NSMakeRect(20,135,285,35) in:v];
++    [self label:@"Settings and memory cards stay in your Application Support folder when you move or replace this app." at:NSMakeRect(20,15,560,58) in:v];
++  }
++  else
++  {
++    [self label:@"Choose a Melee USA revision 2 ISO, GCM, CISO, or extracted game folder. Imports are checked against this build and take effect next launch." at:NSMakeRect(20,185,560,75) in:v];
++    [self button:@"Choose disc image or game folder…" action:@selector(chooseGame:) at:NSMakeRect(20,135,285,35) in:v];
++    [self label:@"Imports run in the background. Your original disc image and existing memory cards are retained." at:NSMakeRect(20,15,560,58) in:v];
++  }
+   [self button:@"Show save data" action:@selector(showSaves:) at:NSMakeRect(20,85,285,35) in:v];
+-  [self label:@"Imports run in the background. Your original disc image and existing memory cards are retained." at:NSMakeRect(20,15,560,58) in:v];
+   v = [self tab:@"Video"];
+   [self label:@"Internal resolution" at:NSMakeRect(20,265,220,25) in:v];
+   NSPopUpButton* scale = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(265,258,280,32) pullsDown:NO];
+@@ -214,6 +227,7 @@
+ - (void)vsync:(NSButton*)sender { bool value=sender.state==NSControlStateValueOn; Config::SetCurrent(Config::GFX_VSYNC,value); self.preferences[@"vsync"]=@(value); [self save]; }
+ - (void)fullscreen:(id)sender { [self.game toggleFullScreen:nil]; }
+ - (void)showSaves:(id)sender { [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:[self.preferencesPath stringByDeletingLastPathComponent].stringByDeletingLastPathComponent]]; }
++- (void)showLogs:(id)sender { [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Library/Logs/t3.melee.native"]]]; }
+ - (void)refresh:(id)sender { g_controller_interface.RefreshDevices(); [self settings:nil]; [self.tabs selectTabViewItemAtIndex:3]; }
+ - (void)controller:(NSPopUpButton*)sender
+ {
