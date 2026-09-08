@@ -5,6 +5,11 @@ Analyzes symbol dependencies between object files to find "leaf" NonMatching fil
 Leaf files are NonMatching files that no other NonMatching file depends on,
 meaning they can potentially be converted to Matching without breaking the build.
 
+Build the source objects first with `ninja all_source`. The analysis uses the
+GALE01 unit list from the generated build configuration. Strong definitions take
+priority over weak definitions. If only weak definitions exist, the graph lists
+all possible providers. It does not choose one on behalf of the linker.
+
 Usage:
     python tools/dep_graph.py                    # Show leaf NonMatching files
     python tools/dep_graph.py --all              # Show full dependency info
@@ -39,7 +44,7 @@ OBJECT_PATTERN = re.compile(
 class ObjectFile:
     path: str
     status: Literal["Matching", "NonMatching", "Equivalent"]
-    defined_symbols: set[str] = field(default_factory=set)
+    defined_symbols: dict[str, Literal["strong", "weak"]] = field(default_factory=dict)
     undefined_symbols: set[str] = field(default_factory=set)
     function_count: int = 0
     match_percent: float = 0.0
@@ -47,7 +52,12 @@ class ObjectFile:
 
 def find_nm_tool() -> str:
     """Find the best nm tool to use for PowerPC ELF files."""
-    # Prefer powerpc-eabi-nm if available
+    executable = "powerpc-eabi-nm.exe" if sys.platform == "win32" else "powerpc-eabi-nm"
+    bundled_nm = ROOT / "build" / "binutils" / executable
+    if bundled_nm.is_file():
+        return str(bundled_nm)
+
+    # Use an installed cross-toolchain if the bundled tools are absent.
     ppc_nm = shutil.which("powerpc-eabi-nm")
     if ppc_nm:
         return ppc_nm
@@ -57,7 +67,11 @@ def find_nm_tool() -> str:
     if devkit_nm.exists():
         return str(devkit_nm)
 
-    # Fall back to system nm (llvm-nm on macOS works with PowerPC ELF)
+    # LLVM supports PowerPC ELF even when the host nm does not.
+    llvm_nm = shutil.which("llvm-nm")
+    if llvm_nm:
+        return llvm_nm
+
     system_nm = shutil.which("nm")
     if system_nm:
         return system_nm
@@ -68,7 +82,15 @@ def find_nm_tool() -> str:
 
 
 def parse_configure() -> dict[str, ObjectFile]:
-    """Parse configure.py to get object file status."""
+    """Read statuses for the units in the generated GALE01 build configuration."""
+    build_config_path = BUILD_DIR / "config.json"
+    if not build_config_path.is_file():
+        raise RuntimeError(
+            f"Build configuration not found: {build_config_path}. "
+            "Run configure.py and ninja all_source first."
+        )
+    build_config = json.loads(build_config_path.read_text())
+    unit_names = {unit["name"] for unit in build_config["units"]}
     objects: dict[str, ObjectFile] = {}
 
     configure_path = ROOT / "configure.py"
@@ -76,6 +98,8 @@ def parse_configure() -> dict[str, ObjectFile]:
 
     for match in OBJECT_PATTERN.finditer(content):
         status_str, path = match.groups()
+        if path not in unit_names:
+            continue
 
         # Normalize status
         if status_str == "Matching" or status_str.startswith("MatchingFor"):
@@ -87,6 +111,11 @@ def parse_configure() -> dict[str, ObjectFile]:
 
         objects[path] = ObjectFile(path=path, status=status)
 
+    missing = unit_names - objects.keys()
+    if missing:
+        raise RuntimeError(
+            "Build units not found in configure.py: " + ", ".join(sorted(missing))
+        )
     return objects
 
 
@@ -103,60 +132,44 @@ def get_object_path(src_path: str) -> Path:
     return BUILD_DIR / "src" / Path(src_path).with_suffix(".o")
 
 
-def analyze_symbols(nm_tool: str, obj_path: Path) -> tuple[set[str], set[str]]:
+def analyze_symbols(
+    nm_tool: str, obj_path: Path
+) -> tuple[dict[str, Literal["strong", "weak"]], set[str]]:
     """Get defined and undefined symbols from an object file using nm."""
-    defined: set[str] = set()
+    defined: dict[str, Literal["strong", "weak"]] = {}
     undefined: set[str] = set()
 
-    if not obj_path.exists():
-        return defined, undefined
+    if not obj_path.is_file():
+        raise RuntimeError(
+            f"Object file not found: {obj_path}. Run ninja all_source first."
+        )
 
     try:
-        # Use POSIX format (-P) for consistent parsing: name type [value] [size]
+        # Only external symbols can connect objects. POSIX format is
+        # name type [value] [size], including undefined symbols.
         result = subprocess.run(
-            [nm_tool, "-P", str(obj_path)],
+            [nm_tool, "-g", "-P", str(obj_path)],
             capture_output=True,
             text=True,
             check=True,
         )
+    except subprocess.CalledProcessError as error:
+        detail = (error.stderr or "").strip() or f"exit status {error.returncode}"
+        raise RuntimeError(f"{nm_tool} failed for {obj_path}: {detail}") from error
+    except OSError as error:
+        raise RuntimeError(f"Cannot run {nm_tool}: {error}") from error
 
-        for line in result.stdout.splitlines():
-            parts = line.split()
-            if len(parts) >= 2:
-                name = parts[0]
-                sym_type = parts[1]
-
-                if sym_type == "U":
-                    # Undefined symbol
-                    undefined.add(name)
-                elif sym_type in "TtDdBbCcRrVvWwSs":
-                    # Defined symbol (various types)
-                    defined.add(name)
-    except subprocess.CalledProcessError:
-        # Try without -P flag as fallback
-        try:
-            result = subprocess.run(
-                [nm_tool, str(obj_path)],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-
-            for line in result.stdout.splitlines():
-                parts = line.split()
-                if len(parts) >= 2:
-                    # Format: [address] type name  OR  type name (for undefined)
-                    if parts[0] == "U":
-                        undefined.add(parts[1])
-                    elif len(parts) >= 3 and parts[1] in "TtDdBbCcRrVvWwSs":
-                        defined.add(parts[2])
-                    elif len(parts) == 2 and parts[0] in "TtDdBbCcRrVvWwSs":
-                        defined.add(parts[1])
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            pass
-    except FileNotFoundError:
-        print(f"Error: nm tool not found: {nm_tool}", file=sys.stderr)
-        sys.exit(1)
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 2:
+            name, sym_type = parts[:2]
+            if sym_type in {"U", "w", "v"}:
+                # Lowercase w/v are undefined weak symbols.
+                undefined.add(name)
+            elif sym_type in {
+                "A", "B", "C", "D", "G", "I", "R", "S", "T", "V", "W", "u", "i"
+            }:
+                defined[name] = "weak" if sym_type in {"V", "W"} else "strong"
 
     return defined, undefined
 
@@ -194,7 +207,8 @@ def build_dependency_graph(
         deps: file -> set of files it depends on
         rdeps: file -> set of files that depend on it
     """
-    symbol_to_file: dict[str, str] = {}
+    strong_providers: dict[str, set[str]] = defaultdict(set)
+    weak_providers: dict[str, set[str]] = defaultdict(set)
 
     print("Analyzing object files...", file=sys.stderr)
     for path, obj in objects.items():
@@ -203,8 +217,9 @@ def build_dependency_graph(
         obj.defined_symbols = defined
         obj.undefined_symbols = undefined
 
-        for sym in defined:
-            symbol_to_file[sym] = path
+        for sym, binding in defined.items():
+            providers = weak_providers if binding == "weak" else strong_providers
+            providers[sym].add(path)
 
     # Build dependency graph
     deps: dict[str, set[str]] = defaultdict(set)
@@ -212,8 +227,8 @@ def build_dependency_graph(
 
     for path, obj in objects.items():
         for sym in obj.undefined_symbols:
-            if sym in symbol_to_file:
-                dep_file = symbol_to_file[sym]
+            providers = strong_providers.get(sym) or weak_providers.get(sym, set())
+            for dep_file in providers:
                 if dep_file != path:
                     deps[path].add(dep_file)
                     rdeps[dep_file].add(path)
@@ -453,7 +468,7 @@ def print_all(
     print(f"  Matching -> NonMatching:    {m_to_nm}")
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(
         description="Analyze symbol dependencies between object files.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -498,25 +513,26 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Find nm tool
     try:
         nm_tool = find_nm_tool()
-    except RuntimeError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        objects = parse_configure()
+        if not objects:
+            raise RuntimeError("No objects found in the build configuration")
 
-    # Parse configure.py
-    objects = parse_configure()
-    if not objects:
-        print("Error: No objects found in configure.py", file=sys.stderr)
-        sys.exit(1)
+        for requested_path in (args.deps, args.rdeps):
+            if requested_path is not None and requested_path not in objects:
+                raise RuntimeError(
+                    f"{requested_path} is not a build unit. "
+                    "Use a path from build/GALE01/config.json without src/, "
+                    "for example melee/pl/player.c."
+                )
 
-    # Load report.json for function counts and match percentages
-    report = load_report()
-    enrich_from_report(objects, report)
-
-    # Build dependency graph
-    deps, rdeps = build_dependency_graph(objects, nm_tool)
+        report = load_report()
+        enrich_from_report(objects, report)
+        deps, rdeps = build_dependency_graph(objects, nm_tool)
+    except (OSError, ValueError, KeyError, RuntimeError) as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
 
     if args.all:
         print_all(objects, deps, rdeps)
@@ -547,6 +563,8 @@ def main() -> None:
             leaves = leaves[: args.limit]
         print_leaves(leaves, objects)
 
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
