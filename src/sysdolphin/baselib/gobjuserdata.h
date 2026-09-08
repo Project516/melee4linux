@@ -7,8 +7,10 @@
 
 #define HSD_GOBJ_USER_DATA_NONE (u8) - 1
 
-void GObj_InitUserData(HSD_GObj* gobj, u8 kind, void (*remove_func)(void*),
+// Attach data and its remover. Removal requires a callback even for null data.
+void GObj_InitUserData(HSD_GObj* gobj, u8 kind, HSD_UserDataEvent remove_func,
                        void* data);
+// Call the remover before clearing the data and marking the slot unused.
 void GObj_RemoveUserData(HSD_GObj* gobj);
 
 #endif
