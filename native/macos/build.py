@@ -120,7 +120,9 @@ def main():
     patches = [
         (runtime, HERE / "patches/apple-input.patch"),
         (runtime, HERE / "patches/app-bundle.patch"),
+        (runtime, HERE / "patches/fast-load.patch"),
         (runtime / "upstream/ModernGekko-Template/lib/ModernGekko", HERE / "patches/runtime-sdl.patch"),
+        (runtime / "upstream/ModernGekko-Template/lib/ModernGekko", HERE / "patches/runtime-cache.patch"),
         (dolphin, HERE / "patches/strict-cpu.patch"),
         (dolphin, HERE / "patches/native-boot.patch"),
     ]

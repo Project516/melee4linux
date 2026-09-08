@@ -26,6 +26,9 @@ jobs:
       run: python -m unittest discover -s tools/check/tests -p '*.py' -v
     - name: Test developer tools
       run: python -m unittest discover -s tools/tests -v
+    - name: Test native Mac build tools
+      if: matrix.os == 'macos-latest'
+      run: python -m unittest discover -s native/macos/tests -v
 
   # This target produces a library. Full GameCube verification needs local game data.
   native-build:
