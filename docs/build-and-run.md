@@ -179,6 +179,10 @@ rerun the matching configuration, and run `tools/verify.py` again.
 
 ## What the native target does
 
+For the separate playable ARM64 build, see
+[native Melee on macOS](native-macos.md). It translates the verified GameCube
+executable and joins it to a macOS compatibility runtime.
+
 The [native CMake target](../.nix/CMakeLists.txt) builds a static library.
 The [Nix configuration](../.nix/overlay.nix) selects 32-bit Linux for it.
 It is useful for compile checks, but it does not produce a playable Mac or

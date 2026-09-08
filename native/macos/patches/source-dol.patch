@@ -1,0 +1,36 @@
+--- a/scripts/build_macos.sh
++++ b/scripts/build_macos.sh
+@@ -63,6 +63,11 @@
+   build/dolrecomp/dolrecomp extract private/GALE01r2.iso private/GALE01r2
+ fi
+ python3 - <<'PY'
++import os
++import shutil
++source_dol = os.environ.get('MELEE_SOURCE_DOL')
++if source_dol:
++    shutil.copyfile(source_dol, 'private/GALE01r2/sys/main.dol')
+ import hashlib
+ from pathlib import Path
+ p=Path('private/GALE01r2/sys/main.dol')
+@@ -75,11 +80,18 @@
+   -DMODERNGEKKO_GAMECUBE_CONTROLLERS=ON \
+   -DMODERNGEKKO_DEFAULT_WINDOW_TITLE='Melee — macOS Recompilation'
+ cmake --build build/runtime --target moderngekko-run -j "$JOBS"
++COMPILATION_DOL=private/GALE01r2/sys/main.dol
++if [[ -n "${MELEE_BOOT_BUILDER:-}" ]]; then
++  python3 "$MELEE_BOOT_BUILDER" --dol "$COMPILATION_DOL" \
++    --apploader private/GALE01r2/sys/apploader.img \
++    --output private/native-boot.dol
++  COMPILATION_DOL=private/native-boot.dol
++fi
+ build/dolrecomp/dolrecomp -j"$JOBS" --cpu gekko --gamecube \
+-  private/GALE01r2/sys/main.dol private/recompiled-next
++  "$COMPILATION_DOL" private/recompiled-next
+ python3 scripts/update_generated.py
+-if ! cmp -s private/GALE01r2/sys/main.dol private/recompiled/generated/main.dol; then
+-  cp private/GALE01r2/sys/main.dol private/recompiled/generated/main.dol
++if ! cmp -s "$COMPILATION_DOL" private/recompiled/generated/main.dol; then
++  cp "$COMPILATION_DOL" private/recompiled/generated/main.dol
+ fi
+ cmake -S "$DOLPHIN/module-template" -B build/game -G Ninja \
+   -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 -DGAME_ID=GALE01 \
