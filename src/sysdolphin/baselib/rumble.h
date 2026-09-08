@@ -43,22 +43,25 @@ struct HSD_PadRumbleListData {
     /*0x1C*/ /* HSD_Rumble* */ u16* headp;
 };
 
-void HSD_PadRumbleRemoveId(u8, int);
+void HSD_PadRumbleRemoveId(u8 channel, int id);
 
-void HSD_PadRumbleFree(HSD_RumbleData* a, HSD_PadRumbleListData* b);
-void HSD_PadRumbleRemove(u8 no);
+// Unlink an entry already in this controller's list and return it to the pool.
+void HSD_PadRumbleFree(HSD_RumbleData* rumble, HSD_PadRumbleListData* entry);
+void HSD_PadRumbleRemove(u8 channel);
 void HSD_PadRumbleRemoveAll(void);
-void HSD_PadRumblePause(u8 no, int status);
+void HSD_PadRumblePause(u8 channel, int paused);
 void HSD_PadRumblePauseAll(void);
 void HSD_PadRumbleUnpauseAll(void);
-void func_80378430_inline(HSD_PadRumbleListData** r6,
-                          HSD_PadRumbleListData* r7);
-int HSD_PadRumbleAdd(u8 no, int id, int frame, int pri, void* listp);
-void HSD_Rumble_80378524(int max);
-int HSD_PadRumbleInterpret1(HSD_PadRumbleListData* a, u8* b);
+// Insert after existing entries with the same or lower priority.
+void func_80378430_inline(HSD_PadRumbleListData** entry_link,
+                          HSD_PadRumbleListData* entry);
+int HSD_PadRumbleAdd(u8 channel, int id, int frame, int priority,
+                     void* script);
+void HSD_Rumble_80378524(int disabled);
+int HSD_PadRumbleInterpret1(HSD_PadRumbleListData* entry, u8* status);
 void HSD_PadRumbleInterpret(void);
-void HSD_PadRumbleInit(u16 a, void* b);
-void HSD_PadRumbleOn(u8 no);
-void HSD_PadRumbleOffN(u8 no);
+void HSD_PadRumbleInit(u16 max_entries, void* entries);
+void HSD_PadRumbleOn(u8 channel);
+void HSD_PadRumbleOffN(u8 channel);
 
 #endif

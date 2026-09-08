@@ -7,100 +7,117 @@
 #include <dolphin/os.h>
 #include <dolphin/pad.h>
 
-HSD_RumbleData HSD_Rumble_804C22E0[4];
+enum {
+    RUMBLE_STATUS_STOP_HARD = 0,
+    RUMBLE_STATUS_STOP = 1,
+    RUMBLE_STATUS_RUMBLE = 2,
+};
 
-void HSD_PadRumbleOn(u8 no)
+enum {
+    RUMBLE_CMD_END = 0,
+    RUMBLE_CMD_RUMBLE = 1,
+    RUMBLE_CMD_STOP = 2,
+    RUMBLE_CMD_STOP_HARD = 3,
+    RUMBLE_CMD_LOOP = 4,
+    RUMBLE_CMD_LOOP_END = 5,
+};
+
+#define RUMBLE_COMMAND_VALUE_MASK 0x1FFF
+
+HSD_RumbleData HSD_Rumble_804C22E0[PAD_MAX_CONTROLLERS];
+
+void HSD_PadRumbleOn(u8 channel)
 {
-    bool intrEnabled = OSDisableInterrupts();
-    HSD_RumbleData* r5 = &HSD_Rumble_804C22E0[no];
+    bool interrupts_enabled = OSDisableInterrupts();
+    HSD_RumbleData* rumble = &HSD_Rumble_804C22E0[channel];
 
-    r5->direct_status = 1;
-    OSRestoreInterrupts(intrEnabled);
+    rumble->direct_status = RUMBLE_STATUS_STOP;
+    OSRestoreInterrupts(interrupts_enabled);
 }
 
-void HSD_PadRumbleOffN(u8 no)
+void HSD_PadRumbleOffN(u8 channel)
 {
-    bool intrEnabled = OSDisableInterrupts();
-    HSD_RumbleData* r5 = &HSD_Rumble_804C22E0[no];
+    bool interrupts_enabled = OSDisableInterrupts();
+    HSD_RumbleData* rumble = &HSD_Rumble_804C22E0[channel];
 
-    r5->direct_status = 0;
-    OSRestoreInterrupts(intrEnabled);
+    rumble->direct_status = RUMBLE_STATUS_STOP_HARD;
+    OSRestoreInterrupts(interrupts_enabled);
 }
 
-void HSD_PadRumbleFree(HSD_RumbleData* a, HSD_PadRumbleListData* b)
+void HSD_PadRumbleFree(HSD_RumbleData* rumble, HSD_PadRumbleListData* entry)
 {
-    RumbleInfo* r6 = &HSD_PadLibData.rumble_info;
-    HSD_PadRumbleListData** r5 = &a->listdatap;
+    RumbleInfo* rumble_info = &HSD_PadLibData.rumble_info;
+    HSD_PadRumbleListData** entry_link = &rumble->listdatap;
 
-    while ((*r5) != b) {
-        r5 = &(*r5)->next;
+    while (*entry_link != entry) {
+        entry_link = &(*entry_link)->next;
     }
-    *r5 = b->next;
-    a->nb_list--;
-    b->next = r6->listdatap;
-    r6->listdatap = b;
+    *entry_link = entry->next;
+    rumble->nb_list--;
+    entry->next = rumble_info->listdatap;
+    rumble_info->listdatap = entry;
 }
 
-void HSD_PadRumbleRemove(u8 no)
+void HSD_PadRumbleRemove(u8 channel)
 {
-    HSD_RumbleData* r28 = &HSD_Rumble_804C22E0[no];
-    bool r29 = OSDisableInterrupts();
-    HSD_PadRumbleListData* r4 = r28->listdatap;
+    HSD_RumbleData* rumble = &HSD_Rumble_804C22E0[channel];
+    bool interrupts_enabled = OSDisableInterrupts();
+    HSD_PadRumbleListData* entry = rumble->listdatap;
 
-    while (r4 != NULL) {
-        HSD_PadRumbleListData* r30 = r4->next;
-        HSD_PadRumbleFree(r28, r4);
-        r4 = r30;
+    while (entry != NULL) {
+        HSD_PadRumbleListData* next_entry = entry->next;
+        HSD_PadRumbleFree(rumble, entry);
+        entry = next_entry;
     }
-    OSRestoreInterrupts(r29);
+    OSRestoreInterrupts(interrupts_enabled);
 }
 
 void HSD_PadRumbleRemoveAll(void)
 {
-    int i;
+    int channel;
 
-    for (i = 0; i < 4; i++) {
-        HSD_PadRumbleRemove(i);
+    for (channel = 0; channel < PAD_MAX_CONTROLLERS; channel++) {
+        HSD_PadRumbleRemove(channel);
     }
 }
 
-void HSD_PadRumbleRemoveId(u8 no, int id)
+void HSD_PadRumbleRemoveId(u8 channel, int id)
 {
-    HSD_RumbleData* r31 = &HSD_Rumble_804C22E0[no];
-    bool r3 = OSDisableInterrupts();
-    HSD_PadRumbleListData* r7 = r31->listdatap;
+    HSD_RumbleData* rumble = &HSD_Rumble_804C22E0[channel];
+    bool interrupts_enabled = OSDisableInterrupts();
+    HSD_PadRumbleListData* entry = rumble->listdatap;
 
-    while (r7 != NULL) {
-        HSD_PadRumbleListData* r6 = r7->next;
-        if (r7->id == (unsigned) id) {
-            HSD_PadRumbleFree(r31, r7);
+    while (entry != NULL) {
+        HSD_PadRumbleListData* next_entry = entry->next;
+        if (entry->id == (unsigned) id) {
+            HSD_PadRumbleFree(rumble, entry);
         }
-        r7 = r6;
+        entry = next_entry;
     }
-    OSRestoreInterrupts(r3);
+    OSRestoreInterrupts(interrupts_enabled);
 }
 
-void HSD_PadRumblePause(u8 no, int status)
+void HSD_PadRumblePause(u8 channel, int paused)
 {
-    bool intrEnabled = OSDisableInterrupts();
-    HSD_PadRumbleListData* r4 = HSD_Rumble_804C22E0[no].listdatap;
+    bool interrupts_enabled = OSDisableInterrupts();
+    HSD_PadRumbleListData* entry = HSD_Rumble_804C22E0[channel].listdatap;
 
-    while (r4 != NULL) {
-        HSD_PadRumbleListData* next = r4->next;
+    while (entry != NULL) {
+        HSD_PadRumbleListData* next_entry = entry->next;
 
-        r4->pause = status;
-        r4 = next;
+        entry->pause = paused;
+        entry = next_entry;
     }
-    OSRestoreInterrupts(intrEnabled);
+    OSRestoreInterrupts(interrupts_enabled);
 }
 
 void HSD_PadRumblePauseAll(void)
 {
     u8 _[8];
 
-    int i;
-    for (i = 0; i < 4; i++) {
-        HSD_PadRumblePause(i, 1);
+    int channel;
+    for (channel = 0; channel < PAD_MAX_CONTROLLERS; channel++) {
+        HSD_PadRumblePause(channel, 1);
     }
 }
 
@@ -108,106 +125,107 @@ void HSD_PadRumbleUnpauseAll(void)
 {
     u8 _[8];
 
-    int i;
-    for (i = 0; i < 4; i++) {
-        HSD_PadRumblePause(i, 0);
+    int channel;
+    for (channel = 0; channel < PAD_MAX_CONTROLLERS; channel++) {
+        HSD_PadRumblePause(channel, 0);
     }
 }
 
-void func_80378430_inline(HSD_PadRumbleListData** r6,
-                          HSD_PadRumbleListData* r7)
+void func_80378430_inline(HSD_PadRumbleListData** entry_link,
+                          HSD_PadRumbleListData* entry)
 {
-    HSD_PadRumbleListData* r5;
+    HSD_PadRumbleListData* current;
 
-    while ((r5 = *r6) != NULL && r5->pri <= r7->pri) {
-        r6 = &r5->next;
+    while ((current = *entry_link) != NULL && current->pri <= entry->pri) {
+        entry_link = &current->next;
     }
-    r7->next = r5;
-    *r6 = r7;
+    entry->next = current;
+    *entry_link = entry;
 }
 
-int HSD_PadRumbleAdd(u8 no, int id, int frame, int pri, void* listp)
+int HSD_PadRumbleAdd(u8 channel, int id, int frame, int priority, void* script)
 {
-    struct RumbleInfo* r31 = &HSD_PadLibData.rumble_info;
-    HSD_RumbleData* r30 = &HSD_Rumble_804C22E0[no];
-    int r29 = 0;
-    bool intrEnabled = OSDisableInterrupts();
-    HSD_PadRumbleListData* r7 = r31->listdatap;
+    struct RumbleInfo* rumble_info = &HSD_PadLibData.rumble_info;
+    HSD_RumbleData* rumble = &HSD_Rumble_804C22E0[channel];
+    int added = 0;
+    bool interrupts_enabled = OSDisableInterrupts();
+    HSD_PadRumbleListData* entry = rumble_info->listdatap;
 
-    if (r7 != NULL && r30->nb_list < r31->max_list) {
-        r31->listdatap = r7->next;
-        r7->id = id;
-        r7->pause = 0;
-        r7->pri = pri;
-        r7->status = 0;
-        r7->loop_count = 0;
-        r7->wait = 0;
-        r7->frame = frame;
-        r7->stack = NULL;
-        r7->headp = listp;
-        r7->listp = listp;
-        func_80378430_inline(&r30->listdatap, r7);
-        r30->nb_list++;
-        r29 = 1;
+    if (entry != NULL && rumble->nb_list < rumble_info->max_list) {
+        rumble_info->listdatap = entry->next;
+        entry->id = id;
+        entry->pause = 0;
+        entry->pri = priority;
+        entry->status = RUMBLE_STATUS_STOP_HARD;
+        entry->loop_count = 0;
+        entry->wait = 0;
+        entry->frame = frame;
+        entry->stack = NULL;
+        entry->headp = script;
+        entry->listp = script;
+        func_80378430_inline(&rumble->listdatap, entry);
+        rumble->nb_list++;
+        added = 1;
     }
-    OSRestoreInterrupts(intrEnabled);
-    return r29;
+    OSRestoreInterrupts(interrupts_enabled);
+    return added;
 }
 
-void HSD_Rumble_80378524(int a)
+void HSD_Rumble_80378524(int disabled)
 {
-    bool intrEnabled = OSDisableInterrupts();
+    bool interrupts_enabled = OSDisableInterrupts();
 
-    HSD_PadLibData.rumble_info.unk2 = a;
-    OSRestoreInterrupts(intrEnabled);
+    HSD_PadLibData.rumble_info.unk2 = disabled;
+    OSRestoreInterrupts(interrupts_enabled);
 }
 
-int HSD_PadRumbleInterpret1(HSD_PadRumbleListData* a, u8* b)
+int HSD_PadRumbleInterpret1(HSD_PadRumbleListData* entry, u8* status)
 {
-    if (a->pause == 1) {
+    if (entry->pause == 1) {
         return 0;
     }
-    while (a->wait == 0) {
-        switch ((*(u8*) a->listp >> 5) & 7) {
-        case 0:
-            if (a->frame == -2) {
+    while (entry->wait == 0) {
+        // Read the opcode from the first byte of a big-endian command word.
+        switch ((*(u8*) entry->listp >> 5) & 7) {
+        case RUMBLE_CMD_END:
+            if (entry->frame == -2) {
                 return 1;
             }
-            a->listp = a->headp;
+            entry->listp = entry->headp;
             break;
-        case 1:
-            a->status = 2;
-            a->wait = *a->listp & 0x1FFF;
-            a->listp++;
+        case RUMBLE_CMD_RUMBLE:
+            entry->status = RUMBLE_STATUS_RUMBLE;
+            entry->wait = *entry->listp & RUMBLE_COMMAND_VALUE_MASK;
+            entry->listp++;
             break;
-        case 2:
-            a->status = 1;
-            a->wait = *a->listp & 0x1FFF;
-            a->listp++;
+        case RUMBLE_CMD_STOP:
+            entry->status = RUMBLE_STATUS_STOP;
+            entry->wait = *entry->listp & RUMBLE_COMMAND_VALUE_MASK;
+            entry->listp++;
             break;
-        case 3:
-            a->status = 0;
-            a->wait = *a->listp & 0x1FFF;
-            a->listp++;
+        case RUMBLE_CMD_STOP_HARD:
+            entry->status = RUMBLE_STATUS_STOP_HARD;
+            entry->wait = *entry->listp & RUMBLE_COMMAND_VALUE_MASK;
+            entry->listp++;
             break;
-        case 4:
-            a->loop_count = *a->listp & 0x1FFF;
-            a->listp++;
-            a->stack = a->listp;
+        case RUMBLE_CMD_LOOP:
+            entry->loop_count = *entry->listp & RUMBLE_COMMAND_VALUE_MASK;
+            entry->listp++;
+            entry->stack = entry->listp;
             break;
-        case 5:
-            if (--a->loop_count != 0) {
-                a->listp = a->stack;
+        case RUMBLE_CMD_LOOP_END:
+            if (--entry->loop_count != 0) {
+                entry->listp = entry->stack;
             } else {
-                a->listp++;
+                entry->listp++;
             }
             break;
         }
     }
-    *b = a->status;
-    a->wait--;
-    if (a->frame != -1 && a->frame != -2) {
-        if (--a->frame == 0) {
+    *status = entry->status;
+    entry->wait--;
+    if (entry->frame != -1 && entry->frame != -2) {
+        if (--entry->frame == 0) {
             return 1;
         }
     }
@@ -216,60 +234,61 @@ int HSD_PadRumbleInterpret1(HSD_PadRumbleListData* a, u8* b)
 
 void HSD_PadRumbleInterpret(void)
 {
-    struct RumbleInfo* r31 = &HSD_PadLibData.rumble_info;
-    HSD_RumbleData* r30 = HSD_Rumble_804C22E0;
-    HSD_PadRumbleListData* r29;
-    HSD_PadRumbleListData* r28;
+    struct RumbleInfo* rumble_info = &HSD_PadLibData.rumble_info;
+    HSD_RumbleData* rumble = HSD_Rumble_804C22E0;
+    HSD_PadRumbleListData* entry;
+    HSD_PadRumbleListData* next_entry;
 
-    int i;
-    for (i = 0; i < 4; i++, r30++) {
-        r30->status = 0;
-        if (r31->unk2 == 0) {
-            r30->status = r30->direct_status;
-            r29 = r30->listdatap;
-            while (r29 != NULL) {
-                r28 = r29->next;
+    int channel;
+    for (channel = 0; channel < PAD_MAX_CONTROLLERS; channel++, rumble++) {
+        rumble->status = RUMBLE_STATUS_STOP_HARD;
+        if (rumble_info->unk2 == 0) {
+            rumble->status = rumble->direct_status;
+            entry = rumble->listdatap;
+            while (entry != NULL) {
+                next_entry = entry->next;
 
-                if (HSD_PadRumbleInterpret1((void*) r29, &r30->status) != 0) {
-                    HSD_PadRumbleFree(r30, r29);
+                if (HSD_PadRumbleInterpret1(entry, &rumble->status) != 0) {
+                    HSD_PadRumbleFree(rumble, entry);
                 }
-                r29 = r28;
+                entry = next_entry;
             }
         }
-        if (r30->status != r30->last_status) {
-            switch (r30->status) {
-            case 0:
-                PADControlMotor(i, 2);
+        if (rumble->status != rumble->last_status) {
+            switch (rumble->status) {
+            case RUMBLE_STATUS_STOP_HARD:
+                PADControlMotor(channel, PAD_MOTOR_STOP_HARD);
                 break;
-            case 1:
-                PADControlMotor(i, 0);
+            case RUMBLE_STATUS_STOP:
+                PADControlMotor(channel, PAD_MOTOR_STOP);
                 break;
-            case 2:
-                PADControlMotor(i, 1);
+            case RUMBLE_STATUS_RUMBLE:
+                PADControlMotor(channel, PAD_MOTOR_RUMBLE);
                 break;
             }
-            r30->last_status = r30->status;
+            rumble->last_status = rumble->status;
         }
     }
 }
 
 struct HSD_RumbleData HSD_Rumble_80406DE0 = { 0 };
 
-void HSD_PadRumbleInit(u16 a, void* b)
+void HSD_PadRumbleInit(u16 max_entries, void* entries)
 {
-    struct RumbleInfo* r6 = &HSD_PadLibData.rumble_info;
-    int i;
+    struct RumbleInfo* rumble_info = &HSD_PadLibData.rumble_info;
+    int index;
 
-    r6->unk2 = 0;
-    r6->max_list = a;
-    r6->listdatap = b;
-    if (a != 0) {
-        for (i = 0; i < a - 1; i++) {
-            r6->listdatap[i].next = &r6->listdatap[i + 1];
+    rumble_info->unk2 = 0;
+    rumble_info->max_list = max_entries;
+    rumble_info->listdatap = entries;
+    if (max_entries != 0) {
+        for (index = 0; index < max_entries - 1; index++) {
+            rumble_info->listdatap[index].next =
+                &rumble_info->listdatap[index + 1];
         }
-        r6->listdatap[i].next = 0;
+        rumble_info->listdatap[index].next = NULL;
     }
-    for (i = 0; i < 4; i++) {
-        HSD_Rumble_804C22E0[i] = HSD_Rumble_80406DE0;
+    for (index = 0; index < PAD_MAX_CONTROLLERS; index++) {
+        HSD_Rumble_804C22E0[index] = HSD_Rumble_80406DE0;
     }
 }
