@@ -6,19 +6,20 @@
 # Usage:
 #   python3 tools/decompctx.py src/file.cpp
 #
-# If changes are made, please submit a PR to
-# https://github.com/encounter/dtk-template
+# Based on https://github.com/encounter/dtk-template.
+# Changes for this automated fork stay in t3dotgg/melee.
 ###
 
 import argparse
 import fnmatch
 import os
 import re
+import sys
+import tempfile
 from typing import List
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 root_dir = os.path.abspath(os.path.join(script_dir, ".."))
-src_dir = os.path.join(root_dir, "src")
 include_dirs: List[str] = []  # Set with -I flag
 exclude_globs: List[str] = []  # Set with -x flag
 
@@ -47,31 +48,32 @@ def generate_prelude(defines) -> str:
     return out_text
 
 
-def import_h_file(in_file: str, r_path: str) -> str:
-    rel_path = os.path.join(root_dir, r_path, in_file)
-    if os.path.exists(rel_path):
+def import_h_file(in_file: str, parent_file: str, line_number: int) -> str:
+    rel_path = os.path.join(root_dir, os.path.dirname(parent_file), in_file)
+    if os.path.isfile(rel_path):
         return import_c_file(rel_path)
     for include_dir in include_dirs:
         inc_path = os.path.join(include_dir, in_file)
-        if os.path.exists(inc_path):
+        if os.path.isfile(inc_path):
             return import_c_file(inc_path)
-    else:
-        print("Failed to locate", in_file)
-        return ""
+    raise FileNotFoundError(
+        f'{parent_file}:{line_number}: cannot find include "{in_file}"'
+    )
 
 
 def import_c_file(in_file: str) -> str:
-    in_file = os.path.relpath(in_file, root_dir)
+    source_path = os.path.abspath(in_file)
+    in_file = os.path.relpath(source_path, root_dir)
     deps.append(in_file)
-    out_text = ""
 
+    # Retry only decoding. Processing can already have added include guards.
     try:
-        with open(in_file, encoding="utf-8") as file:
-            out_text += process_file(in_file, list(file))
-    except Exception:
-        with open(in_file) as file:
-            out_text += process_file(in_file, list(file))
-    return out_text
+        with open(source_path, encoding="utf-8") as file:
+            lines = list(file)
+    except UnicodeDecodeError:
+        with open(source_path) as file:
+            lines = list(file)
+    return process_file(in_file, lines)
 
 
 def process_file(in_file: str, lines: List[str]) -> str:
@@ -102,7 +104,7 @@ def process_file(in_file: str, lines: List[str]) -> str:
             if excluded:
                 out_text += "/* Skipped excluded file */\n"
             else:
-                out_text += import_h_file(include_match[1], os.path.dirname(in_file))
+                out_text += import_h_file(include_match[1], in_file, idx + 1)
             out_text += f'/* end "{include_match[1]}" */\n'
         else:
             out_text += line
@@ -114,7 +116,22 @@ def sanitize_path(path: str) -> str:
     return path.replace("\\", "/").replace(" ", "\\ ")
 
 
-def main():
+def write_output(path: str, text: str) -> None:
+    """Replace a generated file only after its contents have been written."""
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=os.path.dirname(path), delete=False
+        ) as file:
+            temporary_path = file.name
+            file.write(text)
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path is not None and os.path.exists(temporary_path):
+            os.unlink(temporary_path)
+
+
+def main() -> int:
     parser = argparse.ArgumentParser(
         description="""Create a context file which can be used for decomp.me"""
     )
@@ -154,25 +171,31 @@ def main():
     args = parser.parse_args()
 
     if args.include is None:
-        exit("No include directories specified")
+        parser.error("No include directories specified")
     global include_dirs
     include_dirs = args.include
     global exclude_globs
     exclude_globs = args.exclude or []
-    prelude_defines = args.define or []
-    output = generate_prelude(prelude_defines)
-    output += import_c_file(args.c_file)
+    # Each invocation must expand its own headers, including after a failed run.
+    defines.clear()
+    deps.clear()
 
-    with open(os.path.join(root_dir, args.output), "w", encoding="utf-8") as f:
-        f.write(output)
+    try:
+        output = generate_prelude(args.define or [])
+        output += import_c_file(args.c_file)
 
-    if args.depfile:
-        with open(os.path.join(root_dir, args.depfile), "w", encoding="utf-8") as f:
-            f.write(sanitize_path(args.output) + ":")
+        if args.depfile:
+            depfile = sanitize_path(args.output) + ":"
             for dep in deps:
-                path = sanitize_path(dep)
-                f.write(f" \\\n\t{path}")
+                depfile += f" \\\n\t{sanitize_path(dep)}"
+            write_output(os.path.join(root_dir, args.depfile), depfile)
+
+        write_output(os.path.join(root_dir, args.output), output)
+    except (OSError, UnicodeError) as error:
+        print(f"decompctx: {error}", file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
