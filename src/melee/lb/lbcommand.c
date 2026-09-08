@@ -10,27 +10,27 @@ void (*lbCommand_803B9840[16])(CommandInfo*) = {
     NULL,       NULL,       NULL,       NULL
 };
 
-/// Reset
+/// End the command stream. The caller stops when the cursor is NULL.
 void Command_00(CommandInfo* info)
 {
     info->u = NULL;
 }
 
-/// SynchronousTimer
+/// Add a relative wait to the current timer, retaining any frame overshoot.
 void Command_01(CommandInfo* info)
 {
     info->timer += info->u->Command_00.value;
     NEXT_CMD(info);
 }
 
-/// AsynchronousTimer
+/// Wait until the animation reaches the requested absolute frame.
 void Command_02(CommandInfo* info)
 {
     info->timer = info->u->Command_02.value - info->frame_count;
     NEXT_CMD(info);
 }
 
-/// SetLoop
+/// Push the loop body address, then its remaining iteration count.
 void Command_03(CommandInfo* info)
 {
     info->event_return[info->loop_count++] = info->u + 1;
@@ -39,21 +39,24 @@ void Command_03(CommandInfo* info)
     NEXT_CMD(info);
 }
 
-/// Execute Loop
+/// Repeat the loop body or pop both loop entries when the count reaches zero.
 void Command_04(CommandInfo* info)
 {
-    u32* ptr = (u32*) info;
-    ptr[info->loop_count + 3] -= 1;
+    /* Decrement the count at event_return[loop_count - 1] as a word, not a
+     * command pointer. Keep this base and index form for the matching build.
+     */
+    u32* words = (u32*) info;
+    words[info->loop_count + 3] -= 1;
 
     if ((s32) info->event_return[info->loop_count - 1]) {
-        info->ptr[0] = &info->ptr[info->loop_count][0];
+        info->u = info->event_return[info->loop_count - 2];
         return;
     }
     NEXT_CMD(info);
     info->loop_count -= 2;
 }
 
-/// Subroutine
+/// Read the target from the next word and push the word after it for return.
 void Command_05(CommandInfo* info)
 {
     NEXT_CMD(info);
@@ -61,20 +64,20 @@ void Command_05(CommandInfo* info)
     info->u = info->u->Command_05.ptr;
 }
 
-/// Return
+/// Pop the return address saved by Command_05.
 void Command_06(CommandInfo* info)
 {
     info->u = info->event_return[info->loop_count -= 1];
 }
 
-/// Goto
+/// Jump to the address stored in the next word.
 void Command_07(CommandInfo* info)
 {
     NEXT_CMD(info);
     info->u = info->u->Command_07.ptr;
 }
 
-/// SetTimerAnimation
+/// Wait until the caller sees an animation frame below one frame-speed step.
 void Command_08(CommandInfo* info)
 {
     NEXT_CMD(info);
@@ -88,10 +91,10 @@ void Command_09(CommandInfo* info)
     NEXT_CMD(info);
 }
 
-bool Command_Execute(CommandInfo* info, u32 command)
+bool Command_Execute(CommandInfo* info, u32 opcode)
 {
-    if (command < 10) {
-        lbCommand_803B9840[command](info);
+    if (opcode < 10) {
+        lbCommand_803B9840[opcode](info);
         return true;
     }
     return false;
