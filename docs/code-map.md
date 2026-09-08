@@ -2,8 +2,8 @@
 
 Start with the behavior you want to understand. Most game code is under
 `src/melee`. HAL's object and graphics library is under
-`src/sysdolphin/baselib`. `src/dolphin` contains the GameCube SDK, not the
-Dolphin emulator.
+`src/sysdolphin/baselib`. The GameCube SDK is in `extern/dolphin`, with headers
+under `extern/dolphin/include/dolphin`. It is separate from the Dolphin emulator.
 
 Use the [build and run guide](build-and-run.md) to verify a matching build
 before editing C code. A successful decompilation gives us equivalent
@@ -61,6 +61,15 @@ rg -n 'ftCo_Jump_GetInput' src config/GALE01/symbols.txt
 rg -n 'ftCo_Jump_Anim' src/melee/ft
 rg -n 'tap_jump_threshold|tap_jump_window' src/melee/ft
 ```
+
+To find candidate headers, run:
+
+```sh
+python tools/find_include.py Fighter_ChangeMotionState
+```
+
+The tool lists headers under `src` with a whole-word match, in path order. Read the
+candidates to find the declaration. A match can also be a use or a comment.
 
 The callback order matters. For example, the jump input check tests the
 stick before X/Y. A cleanup must preserve that order unless it deliberately

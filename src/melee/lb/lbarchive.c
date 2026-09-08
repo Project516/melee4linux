@@ -16,8 +16,8 @@
 #endif
 void lbArchive_InitializeDAT(HSD_Archive* archive, void* data, size_t length)
 {
-    const char* symbol;
-    int i = 0;
+    const char* extern_name;
+    int extern_index = 0;
 
     if (HSD_ArchiveParse(archive, data, length) == -1) {
         OSReport("HSD_ArchiveParse error!\n");
@@ -25,11 +25,11 @@ void lbArchive_InitializeDAT(HSD_Archive* archive, void* data, size_t length)
     }
 
     while (true) {
-        symbol = HSD_ArchiveGetExtern(archive, i++);
-        if (symbol != NULL) {
-            HSD_ArchiveLocateExtern(archive, symbol, NULL);
+        extern_name = HSD_ArchiveGetExtern(archive, extern_index++);
+        if (extern_name != NULL) {
+            HSD_ArchiveLocateExtern(archive, extern_name, NULL);
         }
-        if (symbol == NULL) {
+        if (extern_name == NULL) {
             return;
         }
     }
@@ -38,24 +38,24 @@ void lbArchive_InitializeDAT(HSD_Archive* archive, void* data, size_t length)
 #pragma pop
 #endif
 
-void lbArchive_LoadSections(HSD_Archive* archive, void** symbol, ...)
+void lbArchive_LoadSections(HSD_Archive* archive, void** symbol_dst, ...)
 {
     const char* symbol_name;
-    va_list symbols;
+    va_list symbol_args;
 
-    va_start(symbols, symbol);
-    for (; symbol != NULL; symbol = va_arg(symbols, void**)) {
-        symbol_name = va_arg(symbols, const char*);
-        *symbol = NULL;
-        *symbol = HSD_ArchiveGetPublicAddress(archive, symbol_name);
-        if (*symbol == NULL) {
+    va_start(symbol_args, symbol_dst);
+    for (; symbol_dst != NULL; symbol_dst = va_arg(symbol_args, void**)) {
+        symbol_name = va_arg(symbol_args, const char*);
+        *symbol_dst = NULL;
+        *symbol_dst = HSD_ArchiveGetPublicAddress(archive, symbol_name);
+        if (*symbol_dst == NULL) {
             OSReport("Cannot find symbol %s.\n", symbol_name);
         }
     }
-    va_end(symbols);
+    va_end(symbol_args);
 }
 
-static inline HSD_Archive* lbArchive_LoadArchive_inline(const char* filename)
+static inline HSD_Archive* loadArchive(const char* filename)
 {
     HSD_Archive* archive;
     void* data;
@@ -70,77 +70,79 @@ static inline HSD_Archive* lbArchive_LoadArchive_inline(const char* filename)
 
 HSD_Archive* lbArchive_LoadArchive(const char* filename)
 {
-    return lbArchive_LoadArchive_inline(filename);
+    return loadArchive(filename);
 }
 
 static inline void lbArchive_vLoadSectionsFatal(HSD_Archive* archive,
-                                                void** symbol, va_list symbols)
+                                                void** symbol_dst,
+                                                va_list symbol_args)
 {
     const char* symbol_name;
 
-    for (; symbol != NULL; symbol = va_arg(symbols, void**)) {
-        symbol_name = va_arg(symbols, const char*);
-        *symbol = NULL;
-        *symbol = HSD_ArchiveGetPublicAddress(archive, symbol_name);
-        if (*symbol == NULL) {
+    for (; symbol_dst != NULL; symbol_dst = va_arg(symbol_args, void**)) {
+        symbol_name = va_arg(symbol_args, const char*);
+        *symbol_dst = NULL;
+        *symbol_dst = HSD_ArchiveGetPublicAddress(archive, symbol_name);
+        if (*symbol_dst == NULL) {
             OSReport("Cannot find symbol %s.\n", symbol_name);
             HSD_ASSERT(112, 0);
         }
     }
 }
 
-static inline void lbArchive_vLoadSections(HSD_Archive* archive, void** symbol,
-                                           va_list symbols)
+static inline void lbArchive_vLoadSections(HSD_Archive* archive,
+                                           void** symbol_dst,
+                                           va_list symbol_args)
 {
     const char* symbol_name;
 
-    for (; symbol != NULL; symbol = va_arg(symbols, void**)) {
-        symbol_name = va_arg(symbols, const char*);
-        *symbol = NULL;
-        *symbol = HSD_ArchiveGetPublicAddress(archive, symbol_name);
-        if (*symbol == NULL) {
+    for (; symbol_dst != NULL; symbol_dst = va_arg(symbol_args, void**)) {
+        symbol_name = va_arg(symbol_args, const char*);
+        *symbol_dst = NULL;
+        *symbol_dst = HSD_ArchiveGetPublicAddress(archive, symbol_name);
+        if (*symbol_dst == NULL) {
             OSReport("Cannot find symbol %s.\n", symbol_name);
         }
     }
 }
 
-HSD_Archive* lbArchive_LoadSymbols(const char* filename, void* symbols, ...)
+HSD_Archive* lbArchive_LoadSymbols(const char* filename, void* symbol_dst, ...)
 {
-    va_list sections;
+    va_list symbol_args;
     HSD_Archive* archive;
     void* data;
     size_t length;
     u8 _[8];
 
-    va_start(sections, symbols);
+    va_start(symbol_args, symbol_dst);
 
     data = lbHeap_80015BD0(0, OSRoundUp32B(lbFileGetSize(filename)));
     archive = lbHeap_80015BD0(0, sizeof(HSD_Archive));
     lbFile_8001668C(filename, data, &length);
     lbArchive_InitializeDAT(archive, data, length);
-    lbArchive_vLoadSectionsFatal(archive, symbols, sections);
+    lbArchive_vLoadSectionsFatal(archive, symbol_dst, symbol_args);
 
-    va_end(sections);
+    va_end(symbol_args);
     return archive;
 }
 
-HSD_Archive* lbArchive_80016DBC(const char* filename, void* symbols, ...)
+HSD_Archive* lbArchive_80016DBC(const char* filename, void* symbol_dst, ...)
 {
-    va_list sections;
+    va_list symbol_args;
     HSD_Archive* archive;
     void* data;
     size_t length;
     u8 _[8];
 
-    va_start(sections, symbols);
+    va_start(symbol_args, symbol_dst);
 
     data = lbHeap_80015BD0(0, OSRoundUp32B(lbFileGetSize(filename)));
     archive = lbHeap_80015BD0(0, sizeof(HSD_Archive));
     lbFile_8001668C(filename, data, &length);
     lbArchive_InitializeDAT(archive, data, length);
-    lbArchive_vLoadSections(archive, symbols, sections);
+    lbArchive_vLoadSections(archive, symbol_dst, symbol_args);
 
-    va_end(sections);
+    va_end(symbol_args);
     return archive;
 }
 
@@ -148,46 +150,46 @@ void lbArchive_80016EFC(HSD_Archive* archive)
 {
     HSD_ASSERT(0xFC, archive);
     HSD_ASSERT(0xFD, archive->flags & HSD_ARCHIVE_DONT_FREE);
-    lbHeap_80015CA8(0, (u32*) (archive->data - 0x20));
-    lbHeap_80015CA8(0, (u32*) archive);
+    lbHeap_80015CA8(0, archive->data - sizeof(HSD_ArchiveHeader));
+    lbHeap_80015CA8(0, archive);
 }
 
-bool lbArchive_80016F80(HSD_Archive** archive, const char* filename)
+bool lbArchive_80016F80(HSD_Archive** dst, const char* filename)
 {
     void* data;
     size_t length;
-    HSD_Archive* var_r3;
-    bool result;
-    u8 _[8];
-
-    var_r3 = lbDvd_8001819C(filename);
-    if (var_r3 != NULL) {
-        result = true;
-    } else {
-        HSD_Archive* tmp;
-        data = lbHeap_80015BD0(0, OSRoundUp32B(lbFileGetSize(filename)));
-        tmp = lbHeap_80015BD0(0, sizeof(HSD_Archive));
-        lbFile_8001668C(filename, data, &length);
-        lbArchive_InitializeDAT(tmp, data, length);
-        var_r3 = tmp;
-        result = false;
-    }
-    if (archive != NULL) {
-        *archive = var_r3;
-    }
-    return result;
-}
-
-bool lbArchive_80017040(HSD_Archive** dst, const char* filename, void* symbols,
-                        ...)
-{
-    void* tmp;
-    HSD_Archive* archive2;
     HSD_Archive* archive;
     bool preloaded;
-    va_list args;
+    u8 _[8];
 
-    va_start(args, symbols);
+    archive = lbDvd_8001819C(filename);
+    if (archive != NULL) {
+        preloaded = true;
+    } else {
+        HSD_Archive* loaded_archive;
+        data = lbHeap_80015BD0(0, OSRoundUp32B(lbFileGetSize(filename)));
+        loaded_archive = lbHeap_80015BD0(0, sizeof(HSD_Archive));
+        lbFile_8001668C(filename, data, &length);
+        lbArchive_InitializeDAT(loaded_archive, data, length);
+        archive = loaded_archive;
+        preloaded = false;
+    }
+    if (dst != NULL) {
+        *dst = archive;
+    }
+    return preloaded;
+}
+
+bool lbArchive_80017040(HSD_Archive** dst, const char* filename,
+                        void* symbol_dst, ...)
+{
+    void* archive_data;
+    HSD_Archive* loaded_archive;
+    HSD_Archive* archive;
+    bool preloaded;
+    va_list symbol_args;
+
+    va_start(symbol_args, symbol_dst);
 
     archive = lbDvd_8001819C(filename);
     if (archive != NULL) {
@@ -200,18 +202,18 @@ bool lbArchive_80017040(HSD_Archive** dst, const char* filename, void* symbols,
             u32 pad;
             u32 pad2;
             data = lbHeap_80015BD0(0, OSRoundUp32B(lbFileGetSize(filename)));
-            tmp = data;
-            archive2 = lbHeap_80015BD0(0, sizeof(HSD_Archive));
-            lbFile_8001668C(filename, tmp, &length);
-            lbArchive_InitializeDAT(archive2, tmp, length);
-            archive = archive2;
+            archive_data = data;
+            loaded_archive = lbHeap_80015BD0(0, sizeof(HSD_Archive));
+            lbFile_8001668C(filename, archive_data, &length);
+            lbArchive_InitializeDAT(loaded_archive, archive_data, length);
+            archive = loaded_archive;
         }
         preloaded = false;
     }
 
-    lbArchive_vLoadSectionsFatal(archive, symbols, args);
+    lbArchive_vLoadSectionsFatal(archive, symbol_dst, symbol_args);
 
-    va_end(args);
+    va_end(symbol_args);
 
     if (dst != NULL) {
         *dst = archive;
@@ -219,16 +221,16 @@ bool lbArchive_80017040(HSD_Archive** dst, const char* filename, void* symbols,
     return preloaded;
 }
 
-bool lbArchive_800171CC(HSD_Archive** dst, const char* filename, void* symbols,
-                        ...)
+bool lbArchive_800171CC(HSD_Archive** dst, const char* filename,
+                        void* symbol_dst, ...)
 {
-    void* tmp;
-    HSD_Archive* archive2;
+    void* archive_data;
+    HSD_Archive* loaded_archive;
     HSD_Archive* archive;
     bool preloaded;
-    va_list args;
+    va_list symbol_args;
 
-    va_start(args, symbols);
+    va_start(symbol_args, symbol_dst);
 
     archive = lbDvd_8001819C(filename);
     if (archive != NULL) {
@@ -241,18 +243,18 @@ bool lbArchive_800171CC(HSD_Archive** dst, const char* filename, void* symbols,
             u32 pad;
             u32 pad2;
             data = lbHeap_80015BD0(0, OSRoundUp32B(lbFileGetSize(filename)));
-            tmp = data;
-            archive2 = lbHeap_80015BD0(0, sizeof(HSD_Archive));
-            lbFile_8001668C(filename, tmp, &length);
-            lbArchive_InitializeDAT(archive2, tmp, length);
-            archive = archive2;
+            archive_data = data;
+            loaded_archive = lbHeap_80015BD0(0, sizeof(HSD_Archive));
+            lbFile_8001668C(filename, archive_data, &length);
+            lbArchive_InitializeDAT(loaded_archive, archive_data, length);
+            archive = loaded_archive;
         }
         preloaded = false;
     }
 
-    lbArchive_vLoadSections(archive, symbols, args);
+    lbArchive_vLoadSections(archive, symbol_dst, symbol_args);
 
-    va_end(args);
+    va_end(symbol_args);
 
     if (dst != NULL) {
         *dst = archive;
@@ -262,12 +264,14 @@ bool lbArchive_800171CC(HSD_Archive** dst, const char* filename, void* symbols,
 
 static inline void Locate(HSD_Archive* archive, intptr_t base_addr)
 {
-    u32 i;
-    u32* ptr;
+    u32 reloc_index;
+    u32 offset;
 
-    for (i = 0; i < archive->header.nb_reloc; i++) {
-        ptr = (u32*) archive->reloc_info[i].offset;
-        *(intptr_t*) (archive->data + (u32) ptr) += base_addr;
+    for (reloc_index = 0; reloc_index < archive->header.nb_reloc;
+         reloc_index++)
+    {
+        offset = archive->reloc_info[reloc_index].offset;
+        *(intptr_t*) (archive->data + offset) += base_addr;
     }
 }
 
@@ -280,7 +284,7 @@ int lbArchiveRelocate(HSD_Archive* archive, u8* src, size_t file_size,
         return -1;
     }
     memset(archive, 0, sizeof(HSD_Archive));
-    archive->flags |= 1;
+    archive->flags |= HSD_ARCHIVE_DONT_FREE;
     memcpy(archive, src, sizeof(HSD_ArchiveHeader));
 
     if (archive->header.file_size != file_size) {

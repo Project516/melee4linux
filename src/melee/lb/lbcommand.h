@@ -16,6 +16,7 @@ void Command_06(CommandInfo* info);
 void Command_07(CommandInfo* info);
 void Command_08(CommandInfo* info);
 void Command_09(CommandInfo* info);
-bool Command_Execute(CommandInfo* info, u32 command);
+/// Execute a shared opcode. Return false for the caller's object-specific set.
+bool Command_Execute(CommandInfo* info, u32 opcode);
 
 #endif
