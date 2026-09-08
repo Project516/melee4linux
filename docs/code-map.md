@@ -31,6 +31,9 @@ field.
 | Object pools | [`baselib/objalloc.c`](../src/sysdolphin/baselib/objalloc.c) | `HSD_ObjAlloc` and `HSD_ObjFree` reuse fixed-size storage. See the [pool guide](code/object-allocation.md). |
 | Heap storage and scene changes | [`lb/lbheap.c`](../src/melee/lb/lbheap.c) | The [heap guide](code/heap-lifecycle.md) explains slot lifetimes, retained ranges, and allocation addresses versus descriptors. |
 | Game object callback order | [`baselib/gobjproc.c`](../src/sysdolphin/baselib/gobjproc.c) and [`baselib/gobj.c`](../src/sysdolphin/baselib/gobj.c) | The [process guide](code/game-object-processes.md) explains callback priorities, list ownership, and removal during a callback. |
+| Game object lifetime and ordering | [`baselib/gobjplink.c`](../src/sysdolphin/baselib/gobjplink.c) | The [lifecycle guide](code/game-object-lifecycle.md) explains equal-priority insertion, reordering, and attachment cleanup. |
+| Render callback lists | [`baselib/gobjgxlink.c`](../src/sysdolphin/baselib/gobjgxlink.c) | The [rendering guide](code/game-object-rendering.md) explains list selection, priority, and callback passes. |
+| ID lookup and list storage | [`baselib/id.c`](../src/sysdolphin/baselib/id.c) and [`baselib/list.c`](../src/sysdolphin/baselib/list.c) | The [ownership guide](code/id-and-list-ownership.md) explains stored pointers, node removal, and lookup results. |
 | Color overlays and fades | [`lb/lb_013B.c`](../src/melee/lb/lb_013B.c) | The [overlay guide](code/color-overlays.md) explains command streams, color blending, and expiration. |
 
 ## Follow a fighter state
@@ -146,6 +149,9 @@ Unit comparisons use each unit's `.text` start address. Units without a
 For JSON reports, `--percent lt` lists decreases in fuzzy match percentage.
 It also accepts `eq`, `ne`, and `gt`. Use these reports to locate changes.
 Use the full executable verification to accept a cleanup.
+
+For a single-function experiment, the [context guide](code/context-generation.md)
+shows how to expand its source and headers with the build's include paths.
 
 ## Separate source behavior from disc data
 

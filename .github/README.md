@@ -28,6 +28,7 @@ You need your own US v1.02 game image. Game images, extracted assets, and execut
 - [Memory allocator](../docs/code/memory-allocator.md), [file loading](../docs/code/file-loading.md), [player tracking](../docs/code/player-tracking.md), and [command streams](../docs/code/commands-and-time.md).
 - [Controller input](../docs/code/controller-input.md), [rumble](../docs/code/rumble.md), and [object pools](../docs/code/object-allocation.md).
 - [Heap lifecycle](../docs/code/heap-lifecycle.md), [disc preloading](../docs/code/dvd-preloading.md), [game object processes](../docs/code/game-object-processes.md), and [color overlays](../docs/code/color-overlays.md).
+- [Game object lifetime](../docs/code/game-object-lifecycle.md), [render callback lists](../docs/code/game-object-rendering.md), and [ID and list ownership](../docs/code/id-and-list-ownership.md).
 - [Contribution rules](CONTRIBUTING.md) and [agent instructions](../AGENTS.md).
 
 After configuring the build, verify a cleanup with:
