@@ -51,12 +51,14 @@ In cases where there is a clear connection between a string embedded in the bina
 
 ## <a name="auto-formatting"></a>Auto Formatting
 
-`clang-format` should be run on all C code in `src`. The easiest way to do this is to install and run [`pre-commit`](https://pre-commit.com/), which will run the formatter with every commit. `pre-commit` is included in our dev packages:
+Run the pinned `clang-format` on edited C and header files. Avoid formatting
+unrelated files during a cleanup. [`pre-commit`](https://pre-commit.com/) is
+included in the development packages:
 
 ```
 pip install -r reqs/dev.txt # Install the pre-commit package
 pre-commit install # Install the commit hook
-pre-commit run --all-files # Run the hook once on existing code
+pre-commit run --files src/path/to/edited.c src/path/to/edited.h
 ```
 
 ## <a name="functions"></a>Functions
