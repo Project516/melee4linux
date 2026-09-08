@@ -14,7 +14,7 @@ try:
 except ImportError:
     from download_models import MODELS, model_path
 
-METHODS = ("lanczos", "bicubic", "nearest", *MODELS)
+METHODS = ("lanczos", "bicubic", "nearest", "channels", *MODELS)
 
 
 def bleed_transparent_rgb(
@@ -178,6 +178,18 @@ class Upscaler:
             return rgba.copy()
         pixels = np.asarray(rgba)
         size = (image.width * scale, image.height * scale)
+        if method == "channels":
+            # GX intensity and lookup textures store values that shaders use as
+            # data. Keep channel relationships and hidden RGB intact.
+            return Image.merge(
+                "RGBA",
+                tuple(
+                    resize_channel(
+                        channel, size, Image.Resampling.BICUBIC, wrap_s, wrap_t
+                    )
+                    for channel in rgba.split()
+                ),
+            )
         if not pixels[:, :, 3].any():
             return Image.new("RGBA", size)
         rgb = Image.fromarray(bleed_transparent_rgb(pixels, wrap_s, wrap_t))

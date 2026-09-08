@@ -84,6 +84,18 @@ class UpscaleTests(unittest.TestCase):
         self.assertEqual(result.size, (2, 4))
         self.assertEqual(set(np.asarray(result)[:, :, 3].flat), {0, 255})
 
+    def test_intensity_data_retains_equal_channels(self):
+        intensity = np.array([[0, 0, 0], [32, 220, 32], [0, 0, 0]], dtype=np.uint8)
+        source = Image.fromarray(np.repeat(intensity[:, :, None], 4, axis=2))
+        result = np.asarray(Upscaler().upscale_image(source, "channels"))
+        for channel in range(1, 4):
+            np.testing.assert_array_equal(result[:, :, 0], result[:, :, channel])
+
+    def test_data_texture_keeps_hidden_values(self):
+        source = Image.new("RGBA", (2, 2), (15, 60, 200, 0))
+        result = np.asarray(Upscaler().upscale_image(source, "channels"))
+        self.assertTrue(np.all(result == (15, 60, 200, 0)))
+
     def test_invalid_scale_or_method_fails(self):
         engine = Upscaler()
         image = Image.new("RGB", (2, 2))

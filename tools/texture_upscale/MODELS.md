@@ -27,7 +27,9 @@ checkpoint parameter names and inference operations.
 
 All four networks produce 4x dimensions. A requested 2x result uses a Lanczos
 reduction after inference. `lanczos`, `bicubic`, and `nearest` are named filters,
-not AI models. The pinned hashes are in
+not AI models. `channels` uses bicubic filtering separately on all four channels
+and preserves data values, including RGB values under zero alpha. Use it for
+intensity and packed mask textures. The pinned hashes are in
 [download_models.py](download_models.py).
 
 ## Run
