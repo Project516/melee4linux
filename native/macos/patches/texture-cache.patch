@@ -1,0 +1,129 @@
+diff --git a/Source/Core/VideoCommon/Assets/CustomAssetCache.cpp b/Source/Core/VideoCommon/Assets/CustomAssetCache.cpp
+index 3b15d57..ec95532 100644
+--- a/Source/Core/VideoCommon/Assets/CustomAssetCache.cpp
++++ b/Source/Core/VideoCommon/Assets/CustomAssetCache.cpp
+@@ -6,6 +6,10 @@
+ #include "Common/Logging/Log.h"
+ #include "Common/MemoryUtil.h"
+
++#include <cstdlib>
++
++#include "VideoCommon/MeleeTexturePack.h"
++
+ #include "UICommon/UICommon.h"
+
+ #include "VideoCommon/Assets/CustomAsset.h"
+@@ -21,6 +25,8 @@ void CustomAssetCache::Initialize()
+   const size_t keep_unused_mem = std::max(sys_mem / 2, std::min(sys_mem, must_keep_unused));
+
+   m_max_ram_available = sys_mem - keep_unused_mem;
++  if (std::getenv("MELEE_APP_BUNDLE") || std::getenv("MELEE_TEXTURE_PACK"))
++    m_max_ram_available = std::min<u64>(m_max_ram_available, MeleeTextures::CacheBudget(sys_mem));
+
+   if (m_max_ram_available == 0)
+     ERROR_LOG_FMT(VIDEO, "Not enough system memory for custom resources.");
+diff --git a/Source/Core/VideoCommon/HiresTextures.cpp b/Source/Core/VideoCommon/HiresTextures.cpp
+index 869671e..a619397 100644
+--- a/Source/Core/VideoCommon/HiresTextures.cpp
++++ b/Source/Core/VideoCommon/HiresTextures.cpp
+@@ -3,6 +3,8 @@
+
+ #include "VideoCommon/HiresTextures.h"
+
++#include <cstdio>
++#include <cstdlib>
+ #include <memory>
+ #include <string>
+ #include <string_view>
+@@ -141,6 +143,10 @@ void HiresTexture::Update()
+     }
+   }
+
++  if (std::getenv("MELEE_APP_BUNDLE") || std::getenv("MELEE_TEXTURE_PACK"))
++    std::fprintf(stderr, "[melee-textures] indexed %zu replacements\n",
++                 s_hires_texture_id_to_arbmipmap.size());
++
+   if (g_ActiveConfig.bCacheHiresTextures)
+   {
+     OSD::AddMessage(fmt::format("Loading '{}' custom textures", s_hires_texture_cache.size()),
+diff --git a/Source/Core/VideoCommon/Resources/Resource.h b/Source/Core/VideoCommon/Resources/Resource.h
+index d534600..d26a351 100644
+--- a/Source/Core/VideoCommon/Resources/Resource.h
++++ b/Source/Core/VideoCommon/Resources/Resource.h
+@@ -60,10 +60,10 @@ public:
+
+ protected:
+   ResourceContext m_resource_context;
++  void NotifyAssetChanged(bool has_error);
+
+ private:
+   void ProcessCurrentTask();
+-  void NotifyAssetChanged(bool has_error);
+   void NotifyAssetUnloaded();
+
+   void NotifyAssetLoadSuccess() final;
+diff --git a/Source/Core/VideoCommon/Resources/TextureDataResource.cpp b/Source/Core/VideoCommon/Resources/TextureDataResource.cpp
+index d72ae8d..6e0dc1e 100644
+--- a/Source/Core/VideoCommon/Resources/TextureDataResource.cpp
++++ b/Source/Core/VideoCommon/Resources/TextureDataResource.cpp
+@@ -36,6 +36,15 @@ Resource::TaskComplete TextureDataResource::CollectPrimaryData()
+   return Resource::TaskComplete::Yes;
+ }
+
++void TextureDataResource::OnUnloadRequested()
++{
++  // The cache releases its copy next. Release this owner too, then let the
++  // next use request the asset again. GPU cache entries keep their texture.
++  m_current_texture_data.reset();
++  m_current_time = {};
++  NotifyAssetChanged(false);
++}
++
+ void TextureDataResource::MarkAsActive()
+ {
+   m_resource_context.asset_cache->MarkAssetActive(m_texture_asset);
+diff --git a/Source/Core/VideoCommon/Resources/TextureDataResource.h b/Source/Core/VideoCommon/Resources/TextureDataResource.h
+index edb529d..44402f2 100644
+--- a/Source/Core/VideoCommon/Resources/TextureDataResource.h
++++ b/Source/Core/VideoCommon/Resources/TextureDataResource.h
+@@ -23,6 +23,7 @@ public:
+
+ private:
+   TaskComplete CollectPrimaryData() override;
++  void OnUnloadRequested() override;
+
+   // Note: asset cache owns the asset, we access as a reference
+   TextureAsset* m_texture_asset = nullptr;
+diff --git a/Source/Core/VideoCommon/TextureCacheBase.cpp b/Source/Core/VideoCommon/TextureCacheBase.cpp
+index c5d6096..a1fb42e 100644
+--- a/Source/Core/VideoCommon/TextureCacheBase.cpp
++++ b/Source/Core/VideoCommon/TextureCacheBase.cpp
+@@ -6,6 +6,8 @@
+ #include <algorithm>
+ #include <chrono>
+ #include <cmath>
++#include <cstdio>
++#include <cstdlib>
+ #include <cstring>
+ #include <memory>
+ #include <string>
+@@ -1641,6 +1643,19 @@ RcTcacheEntry TextureCacheBase::CreateTextureEntry(
+                            level.data.data(), level.data.size());
+     }
+
++    // Optional local capture verifies that replacements reached the GPU.
++    static const auto texture_log = std::unique_ptr<std::FILE, decltype(&std::fclose)>(
++        std::getenv("MELEE_TEXTURE_LOG") ? std::fopen(std::getenv("MELEE_TEXTURE_LOG"), "w")
++                                         : nullptr,
++        &std::fclose);
++    if (texture_log)
++    {
++      std::fprintf(texture_log.get(), "%s\t%u\t%u\t%u\n",
++                   texture_info.CalculateTextureName().GetFullName().c_str(), first_level.width,
++                   first_level.height, texLevels);
++      std::fflush(texture_log.get());
++    }
++
+     entry->has_arbitrary_mips = custom_arbitrary_mipmaps;
+     entry->is_custom_tex = true;
+   }

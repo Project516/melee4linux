@@ -1,0 +1,70 @@
+diff --git a/macos/MeleeFrontend.inc b/macos/MeleeFrontend.inc
+index 0daf356..e6f2463 100644
+--- a/macos/MeleeFrontend.inc
++++ b/macos/MeleeFrontend.inc
+@@ -5,6 +5,8 @@
+ #include "Core/Config/GraphicsSettings.h"
+ #include "Core/Config/MainSettings.h"
+ #include "Core/Config/StaticRecompSettings.h"
++#include "VideoCommon/MeleeTexturePack.h"
++#include "VideoCommon/VideoConfig.h"
+ #include <cstdlib>
+ #include <cstring>
+ #include "Core/HW/GCPad.h"
+@@ -222,6 +224,15 @@ extern std::atomic<bool> g_melee_menu_open;
+   [v addSubview:latency];
+   [self button:@"Toggle fullscreen" action:@selector(fullscreen:) at:NSMakeRect(20,125,250,35) in:v];
+   [self label:@"120 FPS adds predicted motion. Use a 120 Hz display.\nVertical sync uses 60 FPS on a 60 Hz display.\nFrame rate, sync, and input delay apply next launch.\nAuto resolution follows the window size." at:NSMakeRect(20,10,565,105) in:v];
++  v = [self tab:@"Textures"];
++  const auto texture_pack = MeleeTextures::FindPackRoot(
++      getenv("MELEE_TEXTURE_PACK") ?: "", File::GetBundleDirectory());
++  NSButton* textures = [NSButton checkboxWithTitle:@"Upscaled textures" target:self action:@selector(textures:)];
++  textures.frame = NSMakeRect(20,265,540,30);
++  textures.state = !self.preferences[@"textures"] || [self.preferences[@"textures"] boolValue];
++  textures.enabled = texture_pack.has_value();
++  [v addSubview:textures];
++  [self label:(texture_pack ? @"Texture pack installed.\n16x anisotropic filtering keeps distant textures clear.\nChanges apply next launch." : @"No texture pack installed.") at:NSMakeRect(20,145,555,100) in:v];
+   v = [self tab:@"Audio"];
+   [self label:@"Master volume" at:NSMakeRect(20,260,550,30) in:v];
+   NSSlider* volume = [NSSlider sliderWithValue:Config::Get(Config::MAIN_AUDIO_VOLUME) minValue:0 maxValue:100 target:self action:@selector(volume:)];
+@@ -264,6 +275,11 @@ extern std::atomic<bool> g_melee_menu_open;
+   self.preferences[@"low_latency"] = @(sender.state == NSControlStateValueOn);
+   [self save];
+ }
++- (void)textures:(NSButton*)sender
++{
++  self.preferences[@"textures"] = @(sender.state == NSControlStateValueOn);
++  [self save];
++}
+ - (void)fastLoading:(NSButton*)sender
+ {
+   if (!getenv("MELEE_APP_BUNDLE") || NetPlay::IsNetPlayRunning()) return;
+@@ -345,6 +361,28 @@ extern "C" void MeleeApplyMediaPreferences()
+   @autoreleasepool {
+     NSString* path=[[NSString stringWithUTF8String:File::GetUserPath(D_CONFIG_IDX).c_str()] stringByAppendingPathComponent:@"MeleeFrontend.plist"];
+     NSDictionary* prefs=[NSDictionary dictionaryWithContentsOfFile:path];
++    const auto texture_pack = MeleeTextures::FindPackRoot(
++        getenv("MELEE_TEXTURE_PACK") ?: "", File::GetBundleDirectory());
++    if (getenv("MELEE_APP_BUNDLE") || getenv("MELEE_TEXTURE_PACK"))
++    {
++      const char* override_enabled = getenv("MELEE_TEXTURES");
++      const bool requested = override_enabled ? strcmp(override_enabled, "0") != 0 :
++          (!prefs[@"textures"] || [prefs[@"textures"] boolValue]);
++      const bool enabled = requested && texture_pack.has_value();
++      if (texture_pack)
++        File::SetUserPath(D_HIRESTEXTURES_IDX, texture_pack->string());
++      Config::SetCurrent(Config::GFX_HIRES_TEXTURES, enabled);
++      // Load only requested textures using Dolphin's background asset workers.
++      Config::SetCurrent(Config::GFX_CACHE_HIRES_TEXTURES, false);
++      if (enabled)
++      {
++        Config::SetCurrent(Config::GFX_ENHANCE_MAX_ANISOTROPY, AnisotropicFilteringMode::Force16x);
++        Config::SetCurrent(Config::GFX_ENHANCE_FORCE_TEXTURE_FILTERING, TextureFilteringMode::Default);
++        Config::SetCurrent(Config::GFX_HACK_NO_MIPMAPPING, false);
++      }
++      fprintf(stderr, "[melee-textures] %s, pack=%s\n", enabled ? "enabled" : "disabled",
++              texture_pack ? texture_pack->string().c_str() : "none");
++    }
+     if (getenv("MELEE_APP_BUNDLE") && !NetPlay::IsNetPlayRunning())
+     {
+       const bool fast_loading = !prefs[@"fast_loading"] || [prefs[@"fast_loading"] boolValue];
