@@ -121,6 +121,10 @@ GALE01 unit list in `build/GALE01/config.json` and the compiled source objects.
 It prefers the project's PowerPC `nm`. Missing objects and failed symbol
 reads stop the report, so build all source objects first.
 
+Strong symbol definitions take priority over weak definitions. If a symbol
+has only weak definitions, the report lists all possible providers. The
+linker decides which definition the executable uses.
+
 These are dependencies between object files, not a call graph. A reference
 can be a function call, a data access, or a callback-table entry. The output
 does not tell you when a callback runs. Read its registration and dispatcher.
