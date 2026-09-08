@@ -12,150 +12,148 @@ PadLibData default_libinfo_data = { 0,    0,    0, 0,    0, 0,    0x2D, 8,
                                     0,    0x1E, 0, 0,    0, 0x7F, 0,    0,
                                     0xFF, 0,    0, 0xFF, 0, 0x7F, 0xFF, 0xFF };
 PadLibData HSD_PadLibData;
-HSD_PadStatus HSD_PadMasterStatus[4];
-HSD_PadStatus HSD_PadCopyStatus[4];
-HSD_PadStatus HSD_PadGameStatus[4];
-const u32 pad_bit[4] = { PAD_CHAN0_BIT, PAD_CHAN1_BIT, PAD_CHAN2_BIT,
-                         PAD_CHAN3_BIT };
+HSD_PadStatus HSD_PadMasterStatus[PAD_MAX_CONTROLLERS];
+HSD_PadStatus HSD_PadCopyStatus[PAD_MAX_CONTROLLERS];
+HSD_PadStatus HSD_PadGameStatus[PAD_MAX_CONTROLLERS];
+const u32 pad_bit[PAD_MAX_CONTROLLERS] = { PAD_CHAN0_BIT, PAD_CHAN1_BIT,
+                                           PAD_CHAN2_BIT, PAD_CHAN3_BIT };
 
 u8 HSD_PadGetRawQueueCount(void)
 {
     u8 queue_count;
-    u32 intr;
-    PadLibData* p;
+    u32 interrupts_enabled;
+    PadLibData* pad_state;
 
-    p = &HSD_PadLibData;
-    intr = OSDisableInterrupts();
-    queue_count = p->qcount;
-    OSRestoreInterrupts(intr);
+    pad_state = &HSD_PadLibData;
+    interrupts_enabled = OSDisableInterrupts();
+    queue_count = pad_state->qcount;
+    OSRestoreInterrupts(interrupts_enabled);
 
     return queue_count;
 }
 
 s32 HSD_PadGetResetSwitch(void)
 {
-    PadLibData* p = &HSD_PadLibData;
+    PadLibData* pad_state = &HSD_PadLibData;
 
-    return (p->reset_switch != 0) ? true : false;
+    return (pad_state->reset_switch != 0) ? true : false;
 }
 
-static void HSD_PadRawQueueShift(u8 qnum, u8* qptr)
+static void HSD_PadRawQueueShift(u8 capacity, u8* queue_index)
 {
-    *qptr = (*qptr + 1) % qnum;
+    *queue_index = (*queue_index + 1) % capacity;
 }
 
+// Merge buttons only. Keep the destination analog values and error.
 static void HSD_PadRawMerge(PADStatus* src1, PADStatus* src2, PADStatus* dst)
 {
-    int i;
-    for (i = 0; i < 4; i++) {
-        dst[i].button = src1[i].button | src2[i].button;
+    int channel;
+    for (channel = 0; channel < PAD_MAX_CONTROLLERS; channel++) {
+        dst[channel].button = src1[channel].button | src2[channel].button;
     }
 }
 
-void HSD_PadRenewRawStatus(bool err_check)
+void HSD_PadRenewRawStatus(bool skip_if_all_invalid)
 {
-    int i;
-    u32 mask;
-    PadLibData* p = &HSD_PadLibData;
-    PADStatus* qwrite;
-    PADStatus* qread;
-    PADStatus now[4];
+    int channel;
+    u32 reset_mask;
+    PadLibData* pad_state = &HSD_PadLibData;
+    HSD_PadData* write_sample;
+    PADStatus* retained_sample;
+    HSD_PadData sample;
 
     HSD_PadRumbleInterpret();
-    PADRead(now);
-    if (err_check) {
-        for (i = 0; i < 4; i++) {
-            if (!now[i].err) {
+    PADRead(sample.stat);
+    if (skip_if_all_invalid) {
+        for (channel = 0; channel < PAD_MAX_CONTROLLERS; channel++) {
+            if (sample.stat[channel].err == PAD_ERR_NONE) {
                 break;
             }
         }
-        if (i == 4) {
+        if (channel == PAD_MAX_CONTROLLERS) {
             return;
         }
     }
 
-    qwrite = p->queue[p->qwrite].stat;
-    if (p->qcount == p->qnum) {
-        switch (p->qtype) {
+    write_sample = &pad_state->queue[pad_state->qwrite];
+    if (pad_state->qcount == pad_state->qnum) {
+        switch (pad_state->qtype) {
         case 0:
-            HSD_PadRawQueueShift(p->qnum, &p->qread);
-            qread = p->queue[p->qread].stat;
-            if (p->qnum != 1) {
-                HSD_PadRawMerge(qwrite, qread, qread);
+            HSD_PadRawQueueShift(pad_state->qnum, &pad_state->qread);
+            retained_sample = pad_state->queue[pad_state->qread].stat;
+            if (pad_state->qnum != 1) {
+                HSD_PadRawMerge(write_sample->stat, retained_sample,
+                                retained_sample);
             } else {
-                HSD_PadRawMerge(now, qread, now);
+                HSD_PadRawMerge(sample.stat, retained_sample, sample.stat);
             }
             break;
         case 1:
-            HSD_PadRawQueueShift(p->qnum, &p->qread);
+            HSD_PadRawQueueShift(pad_state->qnum, &pad_state->qread);
             break;
         case 2:
-            goto skip;
+            goto check_resets;
         }
     } else {
-        p->qcount += 1;
+        pad_state->qcount += 1;
     }
 
-    {
-        struct a {
-            PADStatus _[4];
-        };
-        *(struct a*) qwrite = *(struct a*) now;
-    }
-    HSD_PadRawQueueShift(p->qnum, &p->qwrite);
+    *write_sample = sample;
+    HSD_PadRawQueueShift(pad_state->qnum, &pad_state->qwrite);
 
-skip:
-    mask = 0;
-    for (i = 0; i < 4; i++) {
-        if (now[i].err == -1) {
-            mask |= pad_bit[i];
+check_resets:
+    reset_mask = 0;
+    for (channel = 0; channel < PAD_MAX_CONTROLLERS; channel++) {
+        if (sample.stat[channel].err == PAD_ERR_NO_CONTROLLER) {
+            reset_mask |= pad_bit[channel];
         }
     }
-    if (mask != 0) {
-        PADReset(mask);
+    if (reset_mask != 0) {
+        PADReset(reset_mask);
     }
     if (OSGetResetSwitchState()) {
-        p->reset_switch_status = 1;
+        pad_state->reset_switch_status = 1;
     } else {
-        if (p->reset_switch_status != 0) {
-            p->reset_switch = 1;
-            p->reset_switch_status = 0;
+        if (pad_state->reset_switch_status != 0) {
+            pad_state->reset_switch = 1;
+            pad_state->reset_switch_status = 0;
         }
     }
 }
 
-void HSD_PadFlushQueue(HSD_FlushType ftype)
+void HSD_PadFlushQueue(HSD_FlushType flush_type)
 {
-    PadLibData* p;
-    PADStatus* qdst;
-    PADStatus* qread;
-    bool intr;
+    PadLibData* pad_state;
+    PADStatus* destination;
+    PADStatus* source;
+    bool interrupts_enabled;
 
-    p = &HSD_PadLibData;
-    intr = OSDisableInterrupts();
-    switch (ftype) {
+    pad_state = &HSD_PadLibData;
+    interrupts_enabled = OSDisableInterrupts();
+    switch (flush_type) {
     case HSD_PAD_FLUSH_QUEUE_MERGE:
-        for (; p->qcount > 1; p->qcount -= 1) {
-            qread = &p->queue->stat[p->qread * 4];
-            HSD_PadRawQueueShift(p->qnum, &p->qread);
-            qdst = &p->queue->stat[p->qread * 4];
-            HSD_PadRawMerge(qread, qdst, qdst);
+        for (; pad_state->qcount > 1; pad_state->qcount -= 1) {
+            source = pad_state->queue[pad_state->qread].stat;
+            HSD_PadRawQueueShift(pad_state->qnum, &pad_state->qread);
+            destination = pad_state->queue[pad_state->qread].stat;
+            HSD_PadRawMerge(source, destination, destination);
         }
         break;
     case HSD_PAD_FLUSH_QUEUE_THROWAWAY:
-        p->qread = p->qwrite;
-        p->qcount = 0;
+        pad_state->qread = pad_state->qwrite;
+        pad_state->qcount = 0;
         break;
     case HSD_PAD_FLUSH_QUEUE_LEAVE1:
-        if (p->qcount > 1) {
-            p->qread = p->qwrite != 0 ? p->qwrite - 1 : p->qnum - 1;
-            p->qcount = 1;
+        if (pad_state->qcount > 1) {
+            pad_state->qread = pad_state->qwrite != 0 ? pad_state->qwrite - 1
+                                                      : pad_state->qnum - 1;
+            pad_state->qcount = 1;
         }
         break;
     default:
         break;
     }
-    OSRestoreInterrupts(intr);
+    OSRestoreInterrupts(interrupts_enabled);
 }
 
 static void HSD_PadClampCheck1(u8* val, u8 shift, u8 min, u8 max)
@@ -282,10 +280,12 @@ static void HSD_PadADConvert(HSD_PadStatus* mp)
 
     switch (p->adc_type) {
     case 0:
-        HSD_PadADConvertCheck1(mp, mp->stickX, mp->stickY, 0x10000, 0x20000,
-                               0x40000, 0x80000);
-        HSD_PadADConvertCheck1(mp, mp->subStickX, mp->subStickY, 0x100000,
-                               0x200000, 0x400000, 0x800000);
+        HSD_PadADConvertCheck1(mp, mp->stickX, mp->stickY, PAD_STICK_UP,
+                               PAD_STICK_DOWN, PAD_STICK_LEFT,
+                               PAD_STICK_RIGHT);
+        HSD_PadADConvertCheck1(mp, mp->subStickX, mp->subStickY,
+                               PAD_SUBSTICK_UP, PAD_SUBSTICK_DOWN,
+                               PAD_SUBSTICK_LEFT, PAD_SUBSTICK_RIGHT);
         break;
     default:
         return;
@@ -348,80 +348,91 @@ static void HSD_PadCrossDir(HSD_PadStatus* mp)
     }
 }
 
-void HSD_PadRenewMasterStatus(void)
+static inline void updateButtonHistory(HSD_PadStatus* status,
+                                       PadLibData* pad_state)
 {
-    int iVar1;
-    PadLibData* p;
-    HSD_PadStatus* mp;
-    PADStatus* qread;
-    int i;
+    int repeat_remaining;
 
-    bool intr;
-
-    p = &HSD_PadLibData;
-    mp = &HSD_PadMasterStatus[0];
-    intr = OSDisableInterrupts();
-    if (p->qcount != 0) {
-        qread = &p->queue->stat[p->qread * 4];
-        HSD_PadRawQueueShift(p->qnum, &p->qread);
-        p->qcount -= 1;
-
-        for (i = 0; i < 4; i++, mp += 1, qread += 1) {
-            mp->last_button = mp->button;
-            mp->err = qread->err;
-            if (mp->err == 0) {
-                mp->button = qread->button;
-                mp->stickX = qread->stickX;
-                mp->stickY = qread->stickY;
-                mp->subStickX = qread->substickX;
-                mp->subStickY = qread->substickY;
-                mp->analogL = qread->triggerLeft;
-                mp->analogR = qread->triggerRight;
-                mp->analogA = qread->analogA;
-                mp->analogB = qread->analogB;
-                HSD_PadClamp(mp);
-                HSD_PadADConvert(mp);
-                HSD_PadScale(mp);
-                HSD_PadCrossDir(mp);
-            } else if (mp->err == -3) {
-                mp->err = 0;
-            } else {
-                mp->button = 0;
-                mp->subStickY = 0;
-                mp->subStickX = 0;
-                mp->stickY = 0;
-                mp->stickX = 0;
-                mp->analogB = 0;
-                mp->analogA = 0;
-                mp->analogR = 0;
-                mp->analogL = 0;
-                mp->nml_subStickY = 0.0;
-                mp->nml_subStickX = 0.0;
-                mp->nml_stickY = 0.0;
-                mp->nml_stickX = 0.0;
-                mp->nml_analogB = 0.0;
-                mp->nml_analogA = 0.0;
-                mp->nml_analogR = 0.0;
-                mp->nml_analogL = 0.0;
-            }
-            mp->trigger = mp->button & (mp->last_button ^ mp->button);
-            mp->release = mp->last_button & (mp->last_button ^ mp->button);
-            if (mp->last_button ^ mp->button) {
-                mp->repeat = mp->trigger;
-                mp->repeat_count = p->repeat_start;
-            } else {
-                iVar1 = mp->repeat_count - 1;
-                mp->repeat_count = iVar1;
-                if (iVar1 != 0) {
-                    mp->repeat = 0;
-                } else {
-                    mp->repeat = mp->button;
-                    mp->repeat_count = p->repeat_interval;
-                }
-            }
+    status->trigger = status->button & (status->last_button ^ status->button);
+    status->release =
+        status->last_button & (status->last_button ^ status->button);
+    if (status->last_button ^ status->button) {
+        status->repeat = status->trigger;
+        status->repeat_count = pad_state->repeat_start;
+    } else {
+        repeat_remaining = status->repeat_count - 1;
+        status->repeat_count = repeat_remaining;
+        if (repeat_remaining != 0) {
+            status->repeat = 0;
+        } else {
+            status->repeat = status->button;
+            status->repeat_count = pad_state->repeat_interval;
         }
     }
-    OSRestoreInterrupts(intr);
+}
+
+void HSD_PadRenewMasterStatus(void)
+{
+    PadLibData* pad_state;
+    HSD_PadStatus* master_status;
+    PADStatus* raw_status;
+    int channel;
+
+    bool interrupts_enabled;
+
+    pad_state = &HSD_PadLibData;
+    master_status = &HSD_PadMasterStatus[0];
+    interrupts_enabled = OSDisableInterrupts();
+    if (pad_state->qcount != 0) {
+        raw_status = pad_state->queue[pad_state->qread].stat;
+        HSD_PadRawQueueShift(pad_state->qnum, &pad_state->qread);
+        pad_state->qcount -= 1;
+
+        for (channel = 0; channel < PAD_MAX_CONTROLLERS;
+             channel++, master_status += 1, raw_status += 1)
+        {
+            master_status->last_button = master_status->button;
+            master_status->err = raw_status->err;
+            if (master_status->err == PAD_ERR_NONE) {
+                master_status->button = raw_status->button;
+                master_status->stickX = raw_status->stickX;
+                master_status->stickY = raw_status->stickY;
+                master_status->subStickX = raw_status->substickX;
+                master_status->subStickY = raw_status->substickY;
+                master_status->analogL = raw_status->triggerLeft;
+                master_status->analogR = raw_status->triggerRight;
+                master_status->analogA = raw_status->analogA;
+                master_status->analogB = raw_status->analogB;
+                HSD_PadClamp(master_status);
+                HSD_PadADConvert(master_status);
+                HSD_PadScale(master_status);
+                HSD_PadCrossDir(master_status);
+            } else if (master_status->err == PAD_ERR_TRANSFER) {
+                // A transfer error keeps the previous sample for this pad.
+                master_status->err = PAD_ERR_NONE;
+            } else {
+                master_status->button = 0;
+                master_status->subStickY = 0;
+                master_status->subStickX = 0;
+                master_status->stickY = 0;
+                master_status->stickX = 0;
+                master_status->analogB = 0;
+                master_status->analogA = 0;
+                master_status->analogR = 0;
+                master_status->analogL = 0;
+                master_status->nml_subStickY = 0.0;
+                master_status->nml_subStickX = 0.0;
+                master_status->nml_stickY = 0.0;
+                master_status->nml_stickX = 0.0;
+                master_status->nml_analogB = 0.0;
+                master_status->nml_analogA = 0.0;
+                master_status->nml_analogR = 0.0;
+                master_status->nml_analogL = 0.0;
+            }
+            updateButtonHistory(master_status, pad_state);
+        }
+    }
+    OSRestoreInterrupts(interrupts_enabled);
 }
 
 static inline void HSD_PadCopyStatusFields(HSD_PadStatus* dst,
@@ -469,83 +480,57 @@ static inline void HSD_PadClearStatusFields(HSD_PadStatus* dst)
 
 void HSD_PadRenewCopyStatus(void)
 {
-    int iVar1;
-    HSD_PadStatus* mp;
-    HSD_PadStatus* cp;
-    PadLibData* p;
+    HSD_PadStatus* master_status;
+    HSD_PadStatus* copy_status;
+    PadLibData* pad_state;
 
-    int i;
+    int channel;
 
-    p = &HSD_PadLibData;
-    for (i = 0; i < 4; i++) {
-        mp = &HSD_PadMasterStatus[i];
-        cp = &HSD_PadCopyStatus[i];
+    pad_state = &HSD_PadLibData;
+    for (channel = 0; channel < PAD_MAX_CONTROLLERS; channel++) {
+        master_status = &HSD_PadMasterStatus[channel];
+        copy_status = &HSD_PadCopyStatus[channel];
 
-        cp->last_button = cp->button;
-        cp->err = mp->err;
-        if (cp->err == 0) {
-            HSD_PadCopyStatusFields(cp, mp);
+        copy_status->last_button = copy_status->button;
+        copy_status->err = master_status->err;
+        if (copy_status->err == PAD_ERR_NONE) {
+            HSD_PadCopyStatusFields(copy_status, master_status);
         } else {
-            HSD_PadClearStatusFields(cp);
+            HSD_PadClearStatusFields(copy_status);
         }
-        cp->trigger = cp->button & (cp->last_button ^ cp->button);
-        cp->release = cp->last_button & (cp->last_button ^ cp->button);
-        if (cp->last_button ^ cp->button) {
-            cp->repeat = cp->trigger;
-            cp->repeat_count = p->repeat_start;
-        } else {
-            iVar1 = cp->repeat_count - 1;
-            cp->repeat_count = iVar1;
-            if (iVar1 != 0) {
-                cp->repeat = 0;
-            } else {
-                cp->repeat = cp->button;
-                cp->repeat_count = p->repeat_interval;
-            }
-        }
+        updateButtonHistory(copy_status, pad_state);
     }
 }
 
 void HSD_PadRenewGameStatus(void)
 {
-    int iVar1;
-    HSD_PadStatus* mp;
-    HSD_PadStatus* gs;
-    PadLibData* p;
+    HSD_PadStatus* master_status;
+    HSD_PadStatus* game_status;
+    PadLibData* pad_state;
 
-    int i;
+    int channel;
 
-    p = &HSD_PadLibData;
-    for (i = 0; i < 4; i++) {
-        mp = &HSD_PadMasterStatus[i];
-        gs = &HSD_PadGameStatus[i];
+    pad_state = &HSD_PadLibData;
+    for (channel = 0; channel < PAD_MAX_CONTROLLERS; channel++) {
+        master_status = &HSD_PadMasterStatus[channel];
+        game_status = &HSD_PadGameStatus[channel];
 
-        gs->last_button = gs->button;
-        gs->err = mp->err;
-        if (gs->err == 0) {
-            HSD_PadCopyStatusFields(gs, mp);
+        game_status->last_button = game_status->button;
+        game_status->err = master_status->err;
+        if (game_status->err == PAD_ERR_NONE) {
+            HSD_PadCopyStatusFields(game_status, master_status);
         } else {
-            HSD_PadClearStatusFields(gs);
+            HSD_PadClearStatusFields(game_status);
         }
-        gs->trigger = gs->button & (gs->last_button ^ gs->button);
-        gs->release = gs->last_button & (gs->last_button ^ gs->button);
-        if (gs->last_button ^ gs->button) {
-            gs->repeat = gs->trigger;
-            gs->repeat_count = p->repeat_start;
-        } else {
-            iVar1 = gs->repeat_count - 1;
-            gs->repeat_count = iVar1;
-            if (iVar1 != 0) {
-                gs->repeat = 0;
-            } else {
-                gs->repeat = gs->button;
-                gs->repeat_count = p->repeat_interval;
-            }
-        }
-    };
-    return;
+        updateButtonHistory(game_status, pad_state);
+    }
 }
 
+// Keep these four update calls separate in the matching build.
+#ifdef MUST_MATCH
+#pragma push
+#pragma dont_inline on
+#endif
 void HSD_PadRenewStatus(void)
 {
     HSD_PadRenewRawStatus(0);
@@ -553,43 +538,47 @@ void HSD_PadRenewStatus(void)
     HSD_PadRenewCopyStatus();
     HSD_PadRenewGameStatus();
 }
+#ifdef MUST_MATCH
+#pragma pop
+#endif
 
 void HSD_PadReset(void)
 {
-    PadLibData* p;
-    bool intr;
-    int i;
+    PadLibData* pad_state;
+    bool interrupts_enabled;
+    int channel;
 
-    p = &HSD_PadLibData;
-    intr = OSDisableInterrupts();
+    pad_state = &HSD_PadLibData;
+    interrupts_enabled = OSDisableInterrupts();
 
     HSD_PadRumbleRemoveAll();
 
-    for (i = 0; i < 4; ++i) {
-        HSD_PadRumbleOffN(i);
+    for (channel = 0; channel < PAD_MAX_CONTROLLERS; ++channel) {
+        HSD_PadRumbleOffN(channel);
     }
 
     HSD_PadFlushQueue(HSD_PAD_FLUSH_QUEUE_THROWAWAY);
-    PADRecalibrate(0xF0000000);
-    p->reset_switch = 0;
+    PADRecalibrate(PAD_CHAN0_BIT | PAD_CHAN1_BIT | PAD_CHAN2_BIT |
+                   PAD_CHAN3_BIT);
+    pad_state->reset_switch = 0;
 
-    OSRestoreInterrupts(intr);
+    OSRestoreInterrupts(interrupts_enabled);
 }
 
-void HSD_PadInit(u8 qnum, HSD_PadData* queue, u16 nb_list,
-                 HSD_PadRumbleListData* listdatap)
+void HSD_PadInit(u8 queue_capacity, HSD_PadData* queue, u16 rumble_capacity,
+                 HSD_PadRumbleListData* rumble_list)
 {
-    int i;
-    PadLibData* p = &HSD_PadLibData;
+    int channel;
+    PadLibData* pad_state = &HSD_PadLibData;
 
-    *p = default_libinfo_data;
-    p->qnum = qnum;
-    p->queue = queue;
-    HSD_PadRumbleInit(nb_list, listdatap);
-    for (i = 0; i < 4; i++) {
-        HSD_PadMasterStatus[i] = default_status_data;
-        HSD_PadCopyStatus[i] = default_status_data;
-        HSD_PadGameStatus[i] = default_status_data;
+    *pad_state = default_libinfo_data;
+    pad_state->qnum = queue_capacity;
+    pad_state->queue = queue;
+    HSD_PadRumbleInit(rumble_capacity, rumble_list);
+    for (channel = 0; channel < PAD_MAX_CONTROLLERS; channel++) {
+        HSD_PadMasterStatus[channel] = default_status_data;
+        HSD_PadCopyStatus[channel] = default_status_data;
+        HSD_PadGameStatus[channel] = default_status_data;
     }
     PADInit();
 }
