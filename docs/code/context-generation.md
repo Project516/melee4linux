@@ -30,7 +30,8 @@ The source path and each `-I` path are relative to the current directory.
 Relative `-o` and `-d` paths are relative to the repository root. Absolute paths
 also work. Output directories must already exist. The default output is
 `ctx.c` at the repository root. Dependency names are relative to that root,
-as expected when Ninja runs there.
+as expected when Ninja runs there. Windows files on a different drive keep
+absolute dependency paths.
 
 Missing files stop generation with a nonzero exit status. A missing header
 message names the source file, line, and include. Check the include paths first.

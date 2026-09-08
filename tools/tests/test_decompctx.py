@@ -83,6 +83,16 @@ class DecompContextTests(unittest.TestCase):
         self.assertEqual(self.output.read_bytes(), context)
         self.assertEqual(self.depfile.read_bytes(), dependencies)
 
+    def test_source_on_another_drive_keeps_absolute_dependencies(self):
+        (self.source / "unit.c").write_text('#include "local.h"\n', encoding="utf-8")
+        (self.source / "local.h").write_text("int local_value;\n", encoding="utf-8")
+        with patch.object(decompctx.os.path, "relpath", side_effect=ValueError("different drives")):
+            self.assertEqual(self.run_cli(), 0)
+        self.assertIn("int local_value;", self.output.read_text(encoding="utf-8"))
+        dependencies = self.depfile.read_text(encoding="utf-8")
+        for filename in ("unit.c", "local.h"):
+            self.assertIn(decompctx.sanitize_path(str(self.source / filename)), dependencies)
+
     def test_missing_include_fails_without_replacing_existing_outputs(self):
         (self.source / "unit.c").write_text(
             '#ifndef UNIT_H\n#define UNIT_H\n#include "missing.h"\n#endif\n',

@@ -63,7 +63,11 @@ def import_h_file(in_file: str, parent_file: str, line_number: int) -> str:
 
 def import_c_file(in_file: str) -> str:
     source_path = os.path.abspath(in_file)
-    in_file = os.path.relpath(source_path, root_dir)
+    try:
+        in_file = os.path.relpath(source_path, root_dir)
+    except ValueError:
+        # Windows cannot form a relative path between different drives.
+        in_file = source_path
     deps.append(in_file)
 
     # Retry only decoding. Processing can already have added include guards.
