@@ -1,6 +1,10 @@
-# Build native Melee on an Apple Silicon Mac
+# Build and run Melee for Mac
 
-This experimental build uses native ARM64 game code, Metal graphics, and the
+**Melee for Mac is a fully automated slop experiment. It is not meant for serious
+use or investigation. No support, maintenance, or human review is promised.**
+
+These are instructions for trying the experiment with your own game data.
+The build uses native ARM64 game code, Metal graphics, and the
 macOS controller APIs through SDL. It requires an Apple Silicon Mac and your
 own Melee USA v1.02 disc image. Build on the Mac where you intend to play.
 The app records the minimum macOS version required by its compiled libraries.
@@ -32,17 +36,22 @@ Its SHA-1 must be `08e0bf20134dfcb260699671004527b2d6bb1a45`. The current native
 runtime uses fixed OS vector addresses for that revision. Other revisions and
 modified executables are rejected.
 
-The result is `build/native/Melee.app`. It contains the runtime, native game
+The result is `build/native/Melee for Mac.app`. It contains the runtime, native game
 module, and local disc data. The app can be moved as one directory. It uses
 separate settings and saves, so it does not change Dolphin's user folder.
 
 ## Play
 
 ```sh
-open build/native/Melee.app
+open "build/native/Melee for Mac.app"
 ```
 
 Select Play. Escape opens the app menu. Command-comma opens Settings.
+
+Older builds were named `Melee.app` or displayed as "Melee Native". The bundle
+ID and `Application Support/t3.melee.native` save folder remain the same.
+Use `git pull` on `master` and repeat the build command to update. GitHub
+redirects the old `t3dotgg/melee` repository URL to `t3dotgg/melee4mac`.
 
 Faster loading is enabled for local play. It removes simulated GameCube disc
 seek delays and raises the modeled buffer transfer rate to 256 MiB/s. Reads
@@ -100,7 +109,7 @@ not full coverage of every mode and stage.
 The controller path passed 103 checks using Apple's software controller API.
 Physical Bluetooth and rumble still need hardware testing.
 
-The app also reopened from `~/Applications/Melee.app` using the saved memory
+The app also reopened from its Applications folder using the saved memory
 card. Its runtime and game data were contained in that app directory.
 The cache check wrote 215 pipeline entries and read them on the next launch.
 The Faster loading switch saved and restored its preference, and its disabled

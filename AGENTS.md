@@ -1,13 +1,20 @@
-# Automated Melee cleanup
+# Melee for Mac
 
-This is Theo's experimental, fully automated fork of `doldecomp/melee`.
-AI agents make and review its changes. Human review is not implied.
+This is Theo's fully automated slop experiment, based on `doldecomp/melee`.
+It is not meant for serious use or investigation. No support, maintenance, or
+human review is promised. Do not present it as an official port or maintained
+project.
+
+Work only on Theo's explicit requests. Do not start an unsolicited audit,
+investigation, cleanup, or upstream contribution. When Theo requests work,
+use the rules below and keep the slop notice visible in the README, app,
+contribution guidance, and pull request descriptions.
 
 ## Repository boundary
 
-- Push only to `t3dotgg/melee` or a local branch.
+- Push only to `t3dotgg/melee4mac` or a local branch.
 - Never open a pull request, issue, review, or comment on `doldecomp/melee` for this work.
-- Use `--repo t3dotgg/melee` for GitHub CLI mutations. Check the remote URL before pushing.
+- Use `--repo t3dotgg/melee4mac` for GitHub CLI mutations. Check the remote URL before pushing.
 - The fork's default branch is `master`. Rebase onto its latest commit before opening a pull request.
 - Open real pull requests within the fork when a review record is useful. Do not open drafts.
 - Keep the automation notice in the README and contribution rules.

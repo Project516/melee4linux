@@ -2,7 +2,7 @@
 # Run a packaged app from Terminal. Finder can open the same app directly.
 set -eu
 if [ "$#" -lt 1 ]; then
-    echo 'Usage: native/macos/run.sh /path/to/Melee.app [runtime options]' >&2
+    echo 'Usage: native/macos/run.sh "/path/to/Melee for Mac.app" [runtime options]' >&2
     exit 2
 fi
 app=$1

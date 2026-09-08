@@ -14,7 +14,7 @@ static int fail(NSString* message)
     fprintf(stderr, "%s\n", message.UTF8String);
     [NSApplication sharedApplication];
     NSAlert* alert = [NSAlert new];
-    alert.messageText = @"Melee could not start";
+    alert.messageText = @"Melee for Mac could not start";
     alert.informativeText = message;
     [alert runModal];
     return 1;
@@ -79,7 +79,7 @@ int main(int argc, const char* argv[])
         dup2(log, STDOUT_FILENO);
         dup2(log, STDERR_FILENO);
         close(log);
-        fprintf(stderr, "\nMelee launch: %s\nSave folder: %s\n",
+        fprintf(stderr, "\nMelee for Mac launch: %s\nSave folder: %s\n",
                 NSDate.date.description.UTF8String,
                 user.fileSystemRepresentation);
         for (NSString* path in @[
@@ -124,6 +124,7 @@ int main(int argc, const char* argv[])
             runtime, @"--game", game, @"--module", module, @"--user-dir", user,
             @"--graphics", @"Metal", @"--audio", @"Cubeb", @"--no-mods"
         ] mutableCopy];
+        [arguments addObjectsFromArray:@[ @"--title", @"Melee for Mac" ]];
         for (int i = 1; i < argc; ++i) {
             // Finder adds this legacy argument on some launch paths.
             if (strncmp(argv[i], "-psn_", 5) != 0) {

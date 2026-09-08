@@ -7,7 +7,7 @@
 #   python3 tools/decompctx.py src/file.cpp
 #
 # Based on https://github.com/encounter/dtk-template.
-# Changes for this automated fork stay in t3dotgg/melee.
+# Changes for this automated fork stay in t3dotgg/melee4mac.
 ###
 
 import argparse

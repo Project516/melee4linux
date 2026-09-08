@@ -7,7 +7,7 @@
 # specific to a project should be added to `configure.py`.
 #
 # Based on https://github.com/encounter/dtk-template.
-# Changes for this automated fork stay in t3dotgg/melee.
+# Changes for this automated fork stay in t3dotgg/melee4mac.
 ###
 
 import io

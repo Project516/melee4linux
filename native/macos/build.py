@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Build the matching game, compile it for ARM64, and package a local Mac app."""
+"""Build Melee for Mac from the verified game and package a local app."""
 
 import argparse
 import hashlib
@@ -86,7 +86,7 @@ def main():
     parser.add_argument("--iso", type=Path, required=True, help="Your Melee USA v1.02 disc image")
     parser.add_argument("--jobs", type=int, default=min(os.cpu_count() or 8, 12))
     parser.add_argument("--runtime-dir", type=Path, default=ROOT / "build/native/recomp")
-    parser.add_argument("--output", type=Path, default=ROOT / "build/native/Melee.app")
+    parser.add_argument("--output", type=Path, default=ROOT / "build/native/Melee for Mac.app")
     args = parser.parse_args()
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         parser.error("This build requires an Apple Silicon Mac.")
@@ -121,6 +121,7 @@ def main():
         (runtime, HERE / "patches/apple-input.patch"),
         (runtime, HERE / "patches/app-bundle.patch"),
         (runtime, HERE / "patches/fast-load.patch"),
+        (runtime, HERE / "patches/branding.patch"),
         (runtime / "upstream/ModernGekko-Template/lib/ModernGekko", HERE / "patches/runtime-sdl.patch"),
         (runtime / "upstream/ModernGekko-Template/lib/ModernGekko", HERE / "patches/runtime-cache.patch"),
         (runtime / "upstream/ModernGekko-Template/lib/ModernGekko", HERE / "patches/startup-inspection.patch"),

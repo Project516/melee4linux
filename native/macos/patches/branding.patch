@@ -1,0 +1,75 @@
+--- a/macos/MeleeFrontend.inc
++++ b/macos/MeleeFrontend.inc
+@@ -60,12 +60,12 @@
+   self.preferences = [NSMutableDictionary dictionaryWithContentsOfFile:self.preferencesPath] ?: [NSMutableDictionary new];
+   self.panel = [[NSPanel alloc] initWithContentRect:NSMakeRect(0,0,660,470)
+       styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
+-  self.panel.title = @"Melee • Home";
++  self.panel.title = @"Melee for Mac";
+   self.panel.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+   self.panel.backgroundColor = NSColor.blackColor;
+   self.panel.hidesOnDeactivate = NO;
+   self.panel.collectionBehavior = NSWindowCollectionBehaviorFullScreenAuxiliary;
+-  NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:@"Melee Home…" action:@selector(home:) keyEquivalent:@"\e"];
++  NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:@"Melee for Mac Home" action:@selector(home:) keyEquivalent:@"\e"];
+   item.keyEquivalentModifierMask = 0; item.target = self;
+   [[[NSApp mainMenu] itemAtIndex:0].submenu insertItem:item atIndex:0];
+   NSMenuItem* prefs = [[NSMenuItem alloc] initWithTitle:@"Settings…" action:@selector(settings:) keyEquivalent:@","];
+@@ -90,12 +90,12 @@
+ {
+   if (self.settingsPaused) { Core::SetState(Core::System::GetInstance(), Core::State::Running); self.settingsPaused = NO; }
+   g_melee_menu_open = true;
+-  self.panel.title = @"Melee • Home";
++  self.panel.title = @"Melee for Mac";
+   self.panel.contentView = [[NSView alloc] initWithFrame:NSMakeRect(0,0,660,470)];
+   NSView* v = self.panel.contentView;
+-  NSTextField* title = [self label:@"MELEE" at:NSMakeRect(48,335,560,70) in:v];
+-  title.font = [NSFont systemFontOfSize:54 weight:NSFontWeightHeavy];
+-  [self label:@"MACOS  /  NATIVE RECOMPILATION" at:NSMakeRect(52,303,550,24) in:v];
++  NSTextField* title = [self label:@"Melee for Mac" at:NSMakeRect(48,335,560,70) in:v];
++  title.font = [NSFont systemFontOfSize:46 weight:NSFontWeightHeavy];
++  [self label:@"Automated slop experiment" at:NSMakeRect(52,303,550,24) in:v];
+   [self button:@"Play" action:@selector(play:) at:NSMakeRect(48,220,260,48) in:v];
+   [self button:@"Settings" action:@selector(settings:) at:NSMakeRect(48,159,260,48) in:v];
+   if (!getenv("MELEE_APP_BUNDLE"))
+@@ -104,7 +104,8 @@
+   NSString* location = getenv("MELEE_APP_BUNDLE")
+       ? @"Escape opens Home. Command-comma opens Settings.\nSaves are in Application Support/t3.melee.native."
+       : @"Escape opens Home. Command-comma opens Settings.\nYour game and memory card stay in this workspace.";
+-  [self label:location at:NSMakeRect(52,30,565,48) in:v];
++  [self label:@"Not for serious use or investigation." at:NSMakeRect(52,68,565,22) in:v];
++  [self label:location at:NSMakeRect(52,15,565,48) in:v];
+   [self position];
+ }
+ - (void)netplay:(id)sender
+@@ -112,7 +113,7 @@
+   if (Core::GetState(Core::System::GetInstance()) == Core::State::Running)
+   { Core::SetState(Core::System::GetInstance(),Core::State::Paused); self.settingsPaused=YES; }
+   g_melee_menu_open=true;
+-  self.panel.title=@"Melee • Netplay";
++  self.panel.title=@"Melee for Mac Netplay";
+   self.panel.contentView=[[NSView alloc] initWithFrame:NSMakeRect(0,0,660,470)];
+   NSView* v=self.panel.contentView;
+   NSTextField* title=[self label:@"Netplay" at:NSMakeRect(30,385,590,48) in:v];
+@@ -165,7 +166,7 @@
+   if (Core::GetState(Core::System::GetInstance()) == Core::State::Running)
+   { Core::SetState(Core::System::GetInstance(), Core::State::Paused); self.settingsPaused = YES; }
+   g_melee_menu_open = true;
+-  self.panel.title = @"Melee • Settings";
++  self.panel.title = @"Melee for Mac Settings";
+   self.panel.contentView = [[NSView alloc] initWithFrame:NSMakeRect(0,0,660,470)];
+   NSView* root = self.panel.contentView;
+   self.tabs = [[NSTabView alloc] initWithFrame:NSMakeRect(20,75,620,365)];
+@@ -173,10 +174,10 @@
+   [self button:@"Back" action:@selector(home:) at:NSMakeRect(25,20,115,34) in:root];
+   [self button:@"Resume game" action:@selector(play:) at:NSMakeRect(480,20,155,34) in:root];
+   NSView* v = [self tab:@"General"];
+-  [self label:@"Game data" at:NSMakeRect(20,265,550,25) in:v];
++  [self label:@"Melee for Mac" at:NSMakeRect(20,265,550,25) in:v];
+   if (getenv("MELEE_APP_BUNDLE"))
+   {
+-    [self label:@"This app includes the game data from your verified Melee USA revision 2 disc. It can run without the build folder." at:NSMakeRect(20,185,560,75) in:v];
++    [self label:@"Automated slop experiment. Not for serious use or investigation. No support, maintenance, or human review is promised." at:NSMakeRect(20,185,560,75) in:v];
+     [self button:@"Show log folder" action:@selector(showLogs:) at:NSMakeRect(20,135,285,35) in:v];
+     if (!NetPlay::IsNetPlayRunning())
+     {

@@ -1,4 +1,7 @@
-# macOS controller input
+# Melee for Mac controller input
+
+Melee for Mac is an automated slop experiment, not meant for serious use or
+investigation. No support, maintenance, or human review is promised.
 
 The native runtime uses SDL 3's Apple GameController backend for Xbox One and
 Xbox Series Bluetooth controllers. This is the macOS controller API. No custom
@@ -43,7 +46,13 @@ controller is connected. Select Keyboard & Mouse to play without a controller.
 ## Test without physical hardware
 
 Set `MELEE_INPUT_TEST=1` for a normal native runtime launch. For the pinned
-runtime workspace, use:
+app built from this fork, use:
+
+```sh
+MELEE_INPUT_TEST=1 native/macos/run.sh "build/native/Melee for Mac.app"
+```
+
+When testing inside the pinned runtime workspace itself, use:
 
 ```sh
 MELEE_FRONTEND=1 MELEE_INPUT_TEST=1 ./scripts/run_macos.sh

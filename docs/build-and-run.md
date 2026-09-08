@@ -1,12 +1,16 @@
-# Build and run on macOS
+# Matching GameCube build for Melee for Mac
 
-This guide builds the GameCube executable and runs it in Dolphin. The steps
+Melee for Mac is a fully automated slop experiment, not meant for serious use
+or investigation. No support, maintenance, or human review is promised.
+For the Mac app, use [the Melee for Mac guide](native-macos.md).
+
+This reference builds the GameCube executable and runs it in Dolphin. The steps
 were tested on an Apple Silicon Mac with Dolphin 2606a and WiBo 1.1.0.
 The matching build reproduces Melee US v1.02 byte for byte.
 
 Run these commands from the repository root. For another operating system,
 start with the [upstream dependency instructions](https://github.com/doldecomp/melee/blob/ae5898ee0dfda41b34fdf846f7d680a33e14779d/.github/README.md#dependencies),
-but clone `https://github.com/t3dotgg/melee.git` for work on this fork.
+but clone `https://github.com/t3dotgg/melee4mac.git` for work on this fork.
 The [code map](code-map.md) explains where to make source changes.
 
 ## Get the original executable

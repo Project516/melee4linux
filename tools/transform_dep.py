@@ -8,7 +8,7 @@
 #   python3 tools/transform_dep.py build/src/file.d build/src/file.d
 #
 # Based on https://github.com/encounter/dtk-template.
-# Changes for this automated fork stay in t3dotgg/melee.
+# Changes for this automated fork stay in t3dotgg/melee4mac.
 ###
 
 import argparse

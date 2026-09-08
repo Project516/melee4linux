@@ -1,7 +1,10 @@
-# Native Melee on macOS
+# Melee for Mac
 
-This is part of Theo's fully automated experimental fork. AI agents make and
-test its changes. Human review is not implied.
+**A fully automated slop experiment. Not meant for serious use or investigation.**
+
+Theo's agents made this fork. No support, maintenance, or human review is
+promised. Please do not spend time investigating it or send its problems to
+upstream projects. Changes here happen at Theo's request.
 
 The build first creates and verifies this fork's GameCube executable. DolRecomp
 translates that executable and the disc's loader into C. Apple Clang then

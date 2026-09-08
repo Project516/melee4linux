@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a local, movable Melee app from an existing macOS runtime build.
+"""Build a local, movable Melee for Mac app from an existing runtime build.
 
 The app contains the user's game data. Do not commit or upload its output.
 Runtime integration: McDandle/melee-macos-recomp, GPL-3.0-or-later.
@@ -224,6 +224,11 @@ def assemble(root: Path, app: Path) -> None:
     shutil.copy2(root / "config/GCPadNew.ini", resources / "Defaults/GCPadNew.ini")
     for name in ("LICENSE", "CREDITS.md"):
         shutil.copy2(root / name, resources / "Licenses" / name)
+    readme = (HERE / "README.md").read_text().replace(
+        "../../docs/native-macos.md",
+        "https://github.com/t3dotgg/melee4mac/blob/master/docs/native-macos.md",
+    )
+    (resources / "README.md").write_text(readme)
     upstream = root / "upstream/ModernGekko-Template/lib/ModernGekko"
     for source, name in (
         (upstream / "LICENSE", "ModernGekko-LICENSE"),
@@ -239,15 +244,15 @@ def assemble(root: Path, app: Path) -> None:
     info = {
         "CFBundleExecutable": "Melee",
         "CFBundleIdentifier": APP_ID,
-        "CFBundleName": "Melee Native",
-        "CFBundleDisplayName": "Melee Native",
+        "CFBundleName": "Melee for Mac",
+        "CFBundleDisplayName": "Melee for Mac",
         "CFBundlePackageType": "APPL",
         "CFBundleShortVersionString": "0.1",
-        "CFBundleVersion": "1",
+        "CFBundleVersion": "2",
         "LSApplicationCategoryType": "public.app-category.games",
         "LSMinimumSystemVersion": minimum_system_version(binaries),
         "NSHighResolutionCapable": True,
-        "NSHumanReadableCopyright": "Automated experimental fork. Runtime credits are in Contents/Resources/Licenses.",
+        "NSHumanReadableCopyright": "Melee for Mac. Automated slop experiment. Not for serious use or investigation. Credits: Contents/Resources/Licenses.",
     }
     icon = root / "build/AppIcon.icns"
     if icon.is_file():
