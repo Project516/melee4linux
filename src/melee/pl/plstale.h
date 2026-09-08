@@ -8,7 +8,9 @@
 void plStale_InitAttackInstance(void);
 void plStale_ResetStaleMoveTableForPlayer(s32 slot);
 u16 plStale_IncrementAttackInstance(void);
-void plStale_UpdateStaleMovesFromFighter(HSD_GObj* gobj, HSD_GObj* gobj_2);
-void plStale_UpdateStaleMovesFromItem(HSD_GObj* gobj, HSD_GObj* gobj_2);
+void plStale_UpdateStaleMovesFromFighter(HSD_GObj* attacker_gobj,
+                                         HSD_GObj* victim_gobj);
+void plStale_UpdateStaleMovesFromItem(HSD_GObj* item_gobj,
+                                      HSD_GObj* victim_gobj);
 
 #endif
