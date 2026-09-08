@@ -3,21 +3,21 @@
 #include "debug.h"
 
 HSD_HashEntry* HashSearchEntry(HSD_Hash* hash, int idx, void* key,
-                               HSD_HashEntry** ptr)
+                               HSD_HashEntry** link_out)
 {
     if (hash->table[idx] == NULL) {
         return NULL;
     }
-    if (ptr != NULL) {
-        HSD_HashEntry** entry;
-        for (entry = &hash->table[idx]; *entry != NULL;
-             entry = &((*entry)->next))
+    if (link_out != NULL) {
+        HSD_HashEntry** entry_link;
+        for (entry_link = &hash->table[idx]; *entry_link != NULL;
+             entry_link = &((*entry_link)->next))
         {
-            if (hash->parent.class_info->keycheck(hash, (*entry)->key, key) ==
-                0)
+            if (hash->parent.class_info->keycheck(hash, (*entry_link)->key,
+                                                  key) == 0)
             {
-                *ptr = (HSD_HashEntry*) entry;
-                return *entry;
+                *link_out = (HSD_HashEntry*) entry_link;
+                return *entry_link;
             }
         }
     } else {

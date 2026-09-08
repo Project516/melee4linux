@@ -10,6 +10,14 @@ static objheap obj_heap = { 0, 0, -1, -1 };
 
 static HSD_ObjAllocData* alloc_datas;
 
+static inline u32 getHeapFreeSize(void)
+{
+    if (obj_heap.top != 0) {
+        return obj_heap.remain;
+    }
+    return OSCheckHeap(HSD_GetHeap());
+}
+
 void HSD_ObjSetHeap(u32 size, void* ptr)
 {
     obj_heap.curr = (u32) ptr;
@@ -20,7 +28,7 @@ void HSD_ObjSetHeap(u32 size, void* ptr)
 
 s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num)
 {
-    u32 computed_start;
+    u32 aligned_start;
     u32 pool_end;
     u32 pool_size;
     u8* pool_start;
@@ -31,9 +39,9 @@ s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num)
     pool_size = data->size * num;
     if (obj_heap.top != 0) {
         pool_end = obj_heap.top + obj_heap.size;
-        computed_start = (obj_heap.curr + data->align) & ~data->align;
-        pool_start = (void*) computed_start;
-        if (computed_start > pool_end) {
+        aligned_start = (obj_heap.curr + data->align) & ~data->align;
+        pool_start = (u8*) aligned_start;
+        if (aligned_start > pool_end) {
             return 0;
         }
         if (pool_end - (u32) pool_start < pool_size) {
@@ -48,19 +56,20 @@ s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num)
         obj_heap.remain = pool_end - obj_heap.curr;
     } else {
         pool_start = HSD_MemAlloc(pool_size);
-        if (pool_start == 0) {
+        if (pool_start == NULL) {
             return 0;
         }
         obj_heap.remain -= pool_size;
     }
 
     {
-        int i;
-        for (i = 0; (unsigned) i < num - 1; i++) {
-            *(void**) (pool_start + data->size * i) =
-                (void*) (pool_start + data->size * (i + 1));
+        int index;
+        for (index = 0; (unsigned) index < num - 1; index++) {
+            ((HSD_ObjAllocLink*) (pool_start + data->size * index))->next =
+                (HSD_ObjAllocLink*) (pool_start + data->size * (index + 1));
         }
-        *(void**) (pool_start + data->size * i) = data->freehead;
+        ((HSD_ObjAllocLink*) (pool_start + data->size * index))->next =
+            data->freehead;
     }
 
     data->freehead = (HSD_ObjAllocLink*) pool_start;
@@ -70,29 +79,22 @@ s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num)
 
 void* HSD_ObjAlloc(HSD_ObjAllocData* data)
 {
-    HSD_ObjAllocLink* cur;
-    u32 size;
+    HSD_ObjAllocLink* object;
+    u32 free_heap_bytes;
 
     if (data->num_limit_flag && data->used >= data->num_limit) {
         return NULL;
     }
     if (data->heap_limit_flag) {
         if (data->heap_limit_num == (unsigned) -1) {
-            if (obj_heap.top != 0) {
-                size = obj_heap.remain;
-            } else {
-                size = OSCheckHeap(HSD_GetHeap());
-            }
-            if (size <= data->heap_limit_size) {
+            free_heap_bytes = getHeapFreeSize();
+            if (free_heap_bytes <= data->heap_limit_size) {
+                /* Permit reuse of this pool, but stop it from growing. */
                 data->heap_limit_num = data->used + data->free;
             }
         } else {
-            if (obj_heap.top != 0) {
-                size = obj_heap.remain;
-            } else {
-                size = OSCheckHeap(HSD_GetHeap());
-            }
-            if (size > data->heap_limit_size) {
+            free_heap_bytes = getHeapFreeSize();
+            if (free_heap_bytes > data->heap_limit_size) {
                 data->heap_limit_num = -1;
             }
         }
@@ -106,14 +108,14 @@ void* HSD_ObjAlloc(HSD_ObjAllocData* data)
             return NULL;
         }
     }
-    cur = data->freehead;
-    data->freehead = cur->next;
+    object = data->freehead;
+    data->freehead = object->next;
     data->used += 1;
     data->free -= 1;
     if (data->used > data->peak) {
         data->peak = data->used;
     }
-    return cur;
+    return object;
 }
 
 void HSD_ObjFree(HSD_ObjAllocData* data, void* obj)
@@ -127,12 +129,12 @@ void HSD_ObjFree(HSD_ObjAllocData* data, void* obj)
 
 static inline void removeAll(HSD_ObjAllocData* data)
 {
-    HSD_ObjAllocData** cur = &alloc_datas;
-    while (*cur != NULL) {
-        if (*cur == data) {
-            *cur = (*cur)->next;
+    HSD_ObjAllocData** data_link = &alloc_datas;
+    while (*data_link != NULL) {
+        if (*data_link == data) {
+            *data_link = (*data_link)->next;
         } else {
-            cur = &(*cur)->next;
+            data_link = &(*data_link)->next;
         }
     }
 }
