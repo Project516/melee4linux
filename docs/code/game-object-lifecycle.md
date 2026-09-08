@@ -40,8 +40,8 @@ of attachment does not set up the other.
 | --- | --- |
 | `HSD_GObjObject_80390A3C` | Find the first object with a given classifier in one `p_link` list. |
 | `HSD_GObjObject_80390A70` | Attach an HSD object to an empty slot. |
-| `HSD_GObjObject_80390ADC` | Detach the HSD object and return its pointer. Do not call its destructor. |
-| `HSD_GObjObject_80390B0C` | Call the destructor selected by `obj_kind`, then clear the attachment. |
+| `HSD_GObjObject_80390ADC` | Detach the HSD object and return its pointer. Do not call its registered remover. |
+| `HSD_GObjObject_80390B0C` | Call the remover selected by `obj_kind`, then clear the attachment. |
 | `GObj_InitUserData` | Attach user data and its removal callback to an empty slot. |
 | `GObj_RemoveUserData` | Call the stored callback, then clear the user-data pointer and kind. |
 
@@ -52,8 +52,8 @@ prevents a second call, and the next setup replaces the callback.
 
 In [`sobjlib.c`](../../src/sysdolphin/baselib/sobjlib.c),
 `HSD_SObjLib_803A44D4` detaches and reattaches the head of an HSD object list
-while it changes the list order. Destroying the old attachment at that point
-would destroy objects still in use. In
+while it changes the list order. Calling the old attachment's remover at that point
+could release objects still in use. In
 [`tyfigupon.c`](../../src/melee/ty/tyfigupon.c), `_tyFigupon_803152BC` attaches
 state when its user-data pointer is null, then removes the state when its
 countdown expires. The HSD object remains attached through this operation.
