@@ -1,0 +1,13 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -413,6 +413,10 @@
+     else()
+         message(FATAL_ERROR "No usable SDL3 target is available for the frontend")
+     endif()
++    if(APPLE)
++        # The AppKit controller mapping uses SDL headers and Apple frameworks.
++        target_link_libraries(moderngekko PRIVATE ${_moderngekko_sdl_target})
++    endif()
+     add_executable(moderngekko-run
+         tools/moderngekko_run.cpp
+         tools/netplay_compatibility.cpp
