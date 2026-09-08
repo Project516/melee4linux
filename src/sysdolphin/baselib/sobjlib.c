@@ -2,6 +2,7 @@
 #include "sobjlib.h"
 
 #include <math.h>
+#include <placeholder.h>
 
 #include "cobj.h"
 #include "gobj.h"
