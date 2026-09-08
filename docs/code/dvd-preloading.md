@@ -35,9 +35,14 @@ arguments have distinct uses and must remain separate.
 | 3, loaded | Completion has been reported. Readiness checks can still wait for heap work. |
 | 4, ready | A readiness check has promoted the entry. Cleanup before compaction skips it. |
 
-`lbDvd_800187F4` returns 0 when it finds no requested entry, 1 while work is
-pending, and 2 when the entry is ready. It promotes state 3 to state 4 and
-sets `load_score` to 9999. `lbDvd_800189EC` waits only while the result is 1.
+`lbDvd_800187F4` returns 0 when it finds no active matching entry with a
+positive `load_score`, 1 while work is pending, and 2 when the entry is ready.
+It promotes state 3 to state 4 and sets `load_score` to 9999.
+`lbDvd_800189EC` waits only while the result is 1.
+
+Both readiness checks test `entry->heap == persistent_heap` before the state
+switch. A heap undergoing compaction therefore keeps even a state-4 entry
+pending until compaction completes.
 
 Readiness can wait for other entries on the same heap. In state 3,
 `findHeapDependencies` checks for both a queued entry with a positive score
