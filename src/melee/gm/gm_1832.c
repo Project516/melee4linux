@@ -742,7 +742,7 @@ void fn_801857C4(HSD_GObj* arg0)
     s32 i;
 
     if (lbl_804735E8.xE1 != 0) {
-        HSD_GObjPLink_80390228(lbl_804D65F0);
+        HSD_GObjFree(lbl_804D65F0);
         img_idx = (u8*) lbl_804735E8.x40;
         i = 0;
         delay = 1;
@@ -769,7 +769,7 @@ void fn_801857C4(HSD_GObj* arg0)
             delay += 8;
             sobj->x40 |= 9;
         }
-        HSD_GObjPLink_80390228(arg0);
+        HSD_GObjFree(arg0);
     }
 }
 
@@ -848,7 +848,7 @@ s32 fn_80185A0C(void)
     proc = HSD_GObj_SetupProc(gobj2, fn_801859C8, 0);
     proc->flags_3 = HSD_GObj_804D783C;
 
-    count = gm_80169238(lbl_8047368C.xF4[0]);
+    count = gm_GetNumCostumesForCKind(lbl_8047368C.xF4[0]);
     lbl_804735E8.xE0 = (s32) count > 3 ? 3 : count;
 
     img_idx = lbl_804735E8.xD0 - 0x90;
@@ -867,17 +867,17 @@ void fn_80185D64(void)
 
     for (i = 0; i < lbl_8047368C.xEF; i++) {
         chr = lbl_8047368C.xF1[i];
-        if (chr != CHKIND_MAX) {
+        if (chr != ChKind_Max) {
             Player_80036E20(chr, lbl_804D65F4, 1);
         }
     }
 
     for (i = 0; i < lbl_8047368C.xF0; i++) {
-        if (lbl_8047368C.xF4[i] == CKIND_GKOOPS) {
-            lbl_8047368C.xF4[i] = CKIND_KOOPA;
+        if (lbl_8047368C.xF4[i] == CKind_GKoops) {
+            lbl_8047368C.xF4[i] = CKind_Koopa;
         }
         chr = lbl_8047368C.xF4[i];
-        if (chr != CHKIND_MAX) {
+        if (chr != ChKind_Max) {
             Player_80036E20(chr, lbl_804D65F4, 1);
         }
     }

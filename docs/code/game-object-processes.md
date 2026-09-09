@@ -30,7 +30,7 @@ An empty pair has a null entry.
 
 ## Insertion and removal
 
-`HSD_GObjProc_8038FAA8` first looks for a predecessor at the same `s_link` on
+`HSD_GObjProc_QueueProc` first looks for a predecessor at the same `s_link` on
 the owner or preceding objects. If none exists, it checks the tails of lower
 `p_link` groups. It inserts after the predecessor, or at the scheduler head
 if no predecessor exists. Finally, it adds the process to the owner's list.
@@ -42,12 +42,12 @@ was entered by a `goto`.
 | Function | Work |
 | --- | --- |
 | `HSD_GObj_SetupProc` | Allocate a process, set its callback and priority, and insert it into both lists. |
-| `HSD_GObjProc_8038FC18` | Unlink from the scheduler list and update its tail-table entry. Keep the owner list intact. |
-| `HSD_GObjProc_8038FCE4` | Unlink from both lists. |
-| `HSD_GObjProc_8038FE24` | Request process removal and return its storage to the object allocator when removal is allowed. |
-| `HSD_GObjProc_8038FED4` | Request removal of every process owned by a game object. |
+| `HSD_GObjProc_UnqueueProc` | Unlink from the scheduler list and update its tail-table entry. Keep the owner list intact. |
+| `HSD_GObjProc_UnlinkProcFromGObj` | Unlink from both lists. |
+| `HSD_GObjProc_RemoveProc` | Request process removal and return its storage to the object allocator when removal is allowed. |
+| `HSD_GObjProc_RemoveAllProcs` | Request removal of every process owned by a game object. |
 
-`HSD_GObjPLink_8039032C` in
+`HSD_GObjPLink_ChangeGObjPri_Unk` in
 [`gobjplink.c`](../../src/sysdolphin/baselib/gobjplink.c) uses scheduler-only
 unlinking when it moves an owner between object lists. It then reinserts the
 owner's processes. Keep the distinction between scheduler-only removal and
@@ -59,7 +59,7 @@ The scheduler stores the active process in `HSD_GObj_804D7838` and the next
 process in `HSD_GObj_804D7830`. It also stores the active owner in
 `HSD_GObj_804D781C`.
 
-A callback can request its own removal. `HSD_GObjProc_8038FE24` records this in
+A callback can request its own removal. `HSD_GObjProc_RemoveProc` records this in
 `HSD_GObj_804CE3E4.b2` and leaves the process allocated until the callback
 returns. Owner removal and owner reordering have similar deferred paths in
 `gobjplink.c`.

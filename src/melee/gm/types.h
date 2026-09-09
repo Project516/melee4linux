@@ -97,16 +97,14 @@ struct GameScene {
 };
 ASSERT_SIZE(struct GameScene, 0x14);
 
-struct gmm_x1CB0 {
+struct GamePrefs {
     /* +0 */ u8 item_freq;
-    /* +1 */ u8 pad_x1[0x8 - 0x1];
     /* +8 */ u64 item_mask;
     /* +10 */ u8 rumble_enabled[PAD_MAX_CONTROLLERS];
-    /* +14 */ u8 sound_balance;
+    /* +14 */ s8 sound_balance;
     /* +15 */ u8 deflicker;
     /* +16 */ u8 saved_language; /* 0x1CC6 */
     /* +18 */ u32 stage_mask;
-    /* +1C */ u8 padding_x16[0x1];
 };
 
 struct FighterData {
@@ -208,7 +206,7 @@ struct GameRules {
     /* 0x04 */ u8 stock_count;
     /* 0x05 */ u8 handicap;
     /* 0x06 */ u8 damage_ratio;
-    /* 0x07 */ u8 unk_x7;
+    /* 0x07 */ u8 stage_sel; ///< ::StageSelectMode
     /* 0x08 */ u8 stock_time_limit;
     /* 0x09 */ u8 friendly_fire;
     /* 0x0A */ u8 pause;
@@ -307,7 +305,7 @@ struct gmm_x1868 {
     /* 0x0328 */ u8 padding_x1B80[0xF8];
     /* 0x0420 */ u32 x1C88[3];
     /* 0x042C */ u8 padding_x1C88[0x1C];
-    /* 0x0448 */ struct gmm_x1CB0 x1CB0;
+    /* 0x0448 */ struct GamePrefs x1CB0;
     /* 0x0468 */ s16 trophy_count;
     /* 0x046A */ u16 trophy_category_flags;
     /* 0x046C */ u16 trophy_flags[TY_TROPHY_COUNT];
@@ -424,7 +422,7 @@ struct lbl_8046B6A0_24C_t {
     u8 is_teams;
     u8 x7;
     u32 x8;
-    u8 xC;
+    s8 xC;
     u8 xD;
     u8 xE;
     u8 padF[0x16 - 0xF];
@@ -503,7 +501,7 @@ struct lbl_8046B6A0_FighterMatchInfoFlags {
     u8 x4_b7 : 1;
 };
 
-struct lbl_8046B6A0_FighterMatchInfo {
+struct VsSceneFighter {
     u8 x0; ///< CharacterKind
     u8 x1;
     u8 slot_type;
@@ -530,7 +528,7 @@ struct lbl_8046B6A0_FighterMatchInfo {
     u16 xC;
 };
 
-struct lbl_8046B6A0_t {
+struct VsSceneController {
     /* 0x0000 */ u8 unk_0; ///< 0 During a match
                            ///< 1 While GAME! or "TIMEOUT!" is displayed/match
                            ///< is frozen on final frame 2 While in 1p and
@@ -546,7 +544,7 @@ struct lbl_8046B6A0_t {
         unpause_timer; ///< Frames remaining before pause input is accepted
                        ///< after unpausing. Set to @c 0xA on unpause and
                        ///< decremented each frame while unpaused. Mirrors
-                       ///< #lbl_8046B6A0_t::pause_timer semantics.
+                       ///< #VsSceneController::pause_timer semantics.
     /* 0x0005 */ u8 hud_enabled;
     /* 0x0006 */ u8 terminate_match;
     /* 0x0007 */ u8 is_singleplayer;
@@ -571,12 +569,12 @@ struct lbl_8046B6A0_t {
     /* 0x002E */ u16 unk_2E;
     /* 0x0030 */ u8 unk_30;
     /* 0x0034 */ f32 unk_34;
-    /* 0x0038 */ struct lbl_8046B6A0_FighterMatchInfo FighterMatchInfo[6];
+    /* 0x0038 */ struct VsSceneFighter fighters[GM_MAX_PLAYERS];
     /* 0x0038 */ char pad_8C[0x24C - 0x8C]; /* maybe part of unk_34[0x925]? */
     /* 0x024C */ struct lbl_8046B6A0_24C_t x24C;
-    /* 0x24C8 */ struct StartMeleeRules x24C8;
+    /* 0x24C8 */ struct StartMeleeRules start;
 }; /* size = 0x2528 */
-ASSERT_SIZE(struct lbl_8046B6A0_t, 0x2528);
+ASSERT_SIZE(struct VsSceneController, 0x2528);
 
 struct datetime {
     u16 year;
@@ -636,7 +634,7 @@ struct MatchTeamData {
 ASSERT_SIZE(struct MatchTeamData, 0xC);
 
 struct MatchPlayerData {
-    u8 slot_type;
+    u8 pkind;  ///< ::Gm_PKind
     s8 ckind;  ///< ::CharacterKind
     s8 ftkind; ///< ::FighterKind
     u8 x3 : 6;
@@ -766,12 +764,12 @@ struct Unk1PData {
         /* 20 */ u32 x20;
         struct Unk1PData_x24 {
             /* 24 */ s8 ckind;
-            /* 25 */ u8 x1;
-            /* 26 */ u8 x2;
-            /* 27 */ u8 x3;
-            /* 28 */ f32 x4;
-            /* 2C */ f32 x8;
-        } x24[3]; ///< @todo ::gmPlayerData?
+            /* 25 */ u8 color;
+            /* 26 */ u8 cpu_level;
+            /* 27 */ u8 cpu_kind;
+            /* 28 */ float attack_ratio;
+            /* 2C */ float defense_ratio;
+        } x24[3];
     } xC;
     /* 48 */ u8 (*x48)(u8, u8);
     /* 4C */ u8 (*x4C)(u8, u8, u8);
@@ -802,7 +800,7 @@ ASSERT_SIZE(struct UnkAdventureData, 0x80);
 struct UnkAllstarData {
     /*  +0 */ struct Unk1PData x0;
     /* +74*/ u16 x74;                      ///< current percent
-    /* +76*/ u8 x76[CKIND_PLAYABLE_COUNT]; ///< character id array
+    /* +76*/ u8 x76[CKind_Playable_Count]; ///< character id array
     /* +90*/ u8 x90[4];
     /* +94*/ u8 _94[2];
     /* +94*/ u8 x96[6];

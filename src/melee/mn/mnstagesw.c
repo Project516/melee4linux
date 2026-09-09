@@ -322,7 +322,7 @@ static void fn_80235F80(HSD_GObj* gobj)
         lbCardGame_UpdatePowerTime();
         mn_804D6BC8.cooldown = 5;
         mn_802339FC();
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
         return;
     }
     if ((u8) mnStageSw_804D6BF4 == 0) {
@@ -615,7 +615,7 @@ static void fn_80236998(HSD_GObj* gobj)
             case 2:
             case 4:
                 mnStageSw_FreeTexts(data);
-                HSD_GObjPLink_80390228(gobj);
+                HSD_GObjFree(gobj);
                 return;
             }
         }
@@ -682,7 +682,7 @@ static inline void mnStageSw_InitUserData(MnStageSwData* user_data, s8 state)
     user_data->x1F = state;
     for (i = 0; (u8) i < NUM_STAGES; i++) {
         if (gm_80164430(gm_801641CC(mnStageSw_803ED4C4[(u8) i])) != 0) {
-            user_data->x2[(u8) i] = gm_80164250(mnStageSw_803ED4C4[i]);
+            user_data->x2[(u8) i] = gm_IsStageUnlocked(mnStageSw_803ED4C4[i]);
         } else {
             user_data->x2[(u8) i] = 0;
         }
