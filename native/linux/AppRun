@@ -20,11 +20,11 @@ case "${1:-}" in
         cat <<'USAGE'
 Melee for Linux
 
-  <AppImage>                     Open the launcher
-  <AppImage> --run [options]     Run the game runtime directly
-  <AppImage> --import [options]  Build the native module for an extracted game
-  <AppImage> --dolrecomp [args]  Run the disc translator
-  <AppImage> --build-id          Print this build's identity
+    <AppImage>                     Open the launcher
+    <AppImage> --run [options]     Run the game runtime directly
+    <AppImage> --import [options]  Build the native module for an extracted game
+    <AppImage> --dolrecomp [args]  Run the disc translator
+    <AppImage> --build-id          Print this build's identity
 
 The launcher needs your own Melee USA v1.02 disc image. No game data is
 included. Settings, saves, and the compiled module live under

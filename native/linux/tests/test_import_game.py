@@ -24,10 +24,11 @@ SPEC.loader.exec_module(importer)
 
 def make_tools(root: Path) -> importer.Tools:
     share = root / "share"
-    for relative in ("zig/zig", "ninja", "module/module_export.c", "module/module.exports",
-                     "module/gen_module_tables.py", "module/gxruntime/include/core/cpu.h",
-                     "module/staticrecomp/StaticRecompABI.h",
-                     *(f"module/gxruntime/src/core/{name}" for name in importer.CPU_SOURCES)):
+    for relative in (
+            "zig/zig", "ninja", "module/module_export.c", "module/module.exports",
+            "module/gen_module_tables.py", "module/gxruntime/include/core/cpu.h",
+            "module/staticrecomp/StaticRecompABI.h",
+            *(f"module/gxruntime/src/core/{name}" for name in importer.CPU_SOURCES)):
         path = share / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("test")
@@ -178,8 +179,8 @@ class StatusTests(unittest.TestCase):
             path = Path(temporary) / "Setup/import-status.txt"
             status = importer.Status(path)
             status.update("Compiling native code", 3, 10)
-            self.assertEqual(path.read_text(),
-                             "message=Compiling native code\ncompleted=3\ntotal=10\ndone=0\nerror=\n")
+            self.assertEqual(
+                path.read_text(), "message=Compiling native code\ncompleted=3\ntotal=10\ndone=0\nerror=\n")
             status.update("Native module build failed", done=True, error="boom")
             self.assertIn("done=1\nerror=boom\n", path.read_text())
             self.assertEqual(sorted(p.name for p in path.parent.iterdir()), ["import-status.txt"])

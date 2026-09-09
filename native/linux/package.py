@@ -38,28 +38,36 @@ DOWNLOADS = {
     "aarch64": {
         "zig": (f"https://ziglang.org/download/{ZIG_VERSION}/zig-aarch64-linux-{ZIG_VERSION}.tar.xz",
                 "958ed7d1e00d0ea76590d27666efbf7a932281b3d7ba0c6b01b0ff26498f667f"),
-        "ninja": (f"https://github.com/ninja-build/ninja/releases/download/v{NINJA_VERSION}/ninja-linux-aarch64.zip",
-                  "fd2cacc8050a7f12a16a2e48f9e06fca5c14fc4c2bee2babb67b58be17a607fc"),
-        "python": ("https://github.com/astral-sh/python-build-standalone/releases/download/20260901/"
-                   "cpython-3.12.14%2B20260901-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz",
-                   "577b4bec0793ad1ff0cbff9adbd0df078eddde38a4c41bf5d83ad381a85ee39d"),
-        "appimagetool": ("https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-aarch64.AppImage",
-                         "f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158"),
-        "appimage-runtime": ("https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-aarch64",
-                             "00cbdfcf917cc6c0ff6d3347d59e0ca1f7f45a6df1a428a0d6d8a78664d87444"),
+        "ninja": (
+            f"https://github.com/ninja-build/ninja/releases/download/v{NINJA_VERSION}/ninja-linux-aarch64.zip",
+            "fd2cacc8050a7f12a16a2e48f9e06fca5c14fc4c2bee2babb67b58be17a607fc"),
+        "python": (
+            "https://github.com/astral-sh/python-build-standalone/releases/download/20260901/"
+            "cpython-3.12.14%2B20260901-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz",
+            "577b4bec0793ad1ff0cbff9adbd0df078eddde38a4c41bf5d83ad381a85ee39d"),
+        "appimagetool": (
+            "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-aarch64.AppImage",
+            "f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158"),
+        "appimage-runtime": (
+            "https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-aarch64",
+            "00cbdfcf917cc6c0ff6d3347d59e0ca1f7f45a6df1a428a0d6d8a78664d87444"),
     },
     "x86_64": {
         "zig": (f"https://ziglang.org/download/{ZIG_VERSION}/zig-x86_64-linux-{ZIG_VERSION}.tar.xz",
                 "02aa270f183da276e5b5920b1dac44a63f1a49e55050ebde3aecc9eb82f93239"),
-        "ninja": (f"https://github.com/ninja-build/ninja/releases/download/v{NINJA_VERSION}/ninja-linux.zip",
-                  "5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6"),
-        "python": ("https://github.com/astral-sh/python-build-standalone/releases/download/20260901/"
-                   "cpython-3.12.14%2B20260901-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
-                   "72748da13197c1fb161e3afeef20a6a385ff24f2165e6e2758e47008e7faba4c"),
-        "appimagetool": ("https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage",
-                         "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0"),
-        "appimage-runtime": ("https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64",
-                             "2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d"),
+        "ninja": (
+            f"https://github.com/ninja-build/ninja/releases/download/v{NINJA_VERSION}/ninja-linux.zip",
+            "5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6"),
+        "python": (
+            "https://github.com/astral-sh/python-build-standalone/releases/download/20260901/"
+            "cpython-3.12.14%2B20260901-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+            "72748da13197c1fb161e3afeef20a6a385ff24f2165e6e2758e47008e7faba4c"),
+        "appimagetool": (
+            "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage",
+            "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0"),
+        "appimage-runtime": (
+            "https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64",
+            "2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d"),
     },
 }
 # Libraries every desktop Linux supplies, or that must match the host's
@@ -74,8 +82,9 @@ EXCLUDED_LIBRARIES = re.compile(
     r"|libbsd.*|libmd\.so.*|libselinux.*|libpcre.*|libffi.*|libgio.*|libglib.*|libgobject.*"
     r"|libgmodule.*|libp11-kit.*|libICE.*|libSM.*|libcap.*|libdbus.*)$"
 )
-GX_CPU_SOURCES = ("cpu.c", "cpu_exception.c", "cpu_interpreter.c", "cpu_interpreter_table.c",
-                  "cpu_interpreter_float.c", "cpu_interpreter_integer.c")
+GX_CPU_SOURCES = (
+    "cpu.c", "cpu_exception.c", "cpu_interpreter.c", "cpu_interpreter_table.c",
+    "cpu_interpreter_float.c", "cpu_interpreter_integer.c")
 
 
 class PackageError(Exception):
@@ -172,8 +181,9 @@ def write_png(path: Path, size: int = 256, color: tuple[int, int, int] = (26, 32
         return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
 
     header = struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0)
-    path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) +
-                     chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+    path.write_bytes(
+        b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header)
+        + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
 
 
 def validate_inputs(root: Path) -> None:
@@ -229,8 +239,10 @@ def extract_zig(archive: Path, destination: Path) -> None:
     with tarfile.open(archive) as tar:
         members = tar.getmembers()
         top = members[0].name.split("/", 1)[0]
-        wanted = [m for m in members if m.name.split("/", 1)[0] == top and
-                  (m.name == f"{top}/zig" or m.name == f"{top}/LICENSE" or m.name.startswith(f"{top}/lib/"))]
+        wanted = [
+            m for m in members
+            if m.name.split("/", 1)[0] == top
+            and (m.name == f"{top}/zig" or m.name == f"{top}/LICENSE" or m.name.startswith(f"{top}/lib/"))]
         tar.extractall(destination.parent / "zig.extract", members=wanted, filter="data")
     (destination.parent / "zig.extract" / top).rename(destination)
     (destination.parent / "zig.extract").rmdir()
@@ -260,14 +272,16 @@ def assemble(root: Path, appdir: Path, downloads: Path, arch: str, texture_pack:
     pins = DOWNLOADS[arch]
     binaries = appdir / "usr/bin"
     share = appdir / "usr/share/melee"
-    for directory in (binaries, share / "tools/refresh", share / "module/gxruntime/src/core",
-                      share / "module/staticrecomp", share / "licenses",
-                      appdir / "usr/share/applications", appdir / "usr/share/icons/hicolor/256x256/apps"):
+    for directory in (
+            binaries, share / "tools/refresh", share / "module/gxruntime/src/core",
+            share / "module/staticrecomp", share / "licenses",
+            appdir / "usr/share/applications", appdir / "usr/share/icons/hicolor/256x256/apps"):
         directory.mkdir(parents=True)
     executables = []
-    for source, name in (("build/runtime/MeleeRuntime", "MeleeRuntime"),
-                         ("build/runtime/MeleeLauncher", "MeleeLauncher"),
-                         ("build/dolrecomp/dolrecomp", "dolrecomp")):
+    for source, name in (
+            ("build/runtime/MeleeRuntime", "MeleeRuntime"),
+            ("build/runtime/MeleeLauncher", "MeleeLauncher"),
+            ("build/dolrecomp/dolrecomp", "dolrecomp")):
         target = binaries / name
         shutil.copy2(root / source, target)
         target.chmod(0o755)
@@ -393,8 +407,9 @@ def main() -> int:
     parser.add_argument("--arch", choices=sorted(DOWNLOADS), help="Target architecture (default: host)")
     options = parser.parse_args()
     try:
-        result = package(options.runtime_dir, options.output, options.replace, options.texture_pack,
-                         options.downloads, options.appdir_only, options.arch)
+        result = package(
+            options.runtime_dir, options.output, options.replace, options.texture_pack,
+            options.downloads, options.appdir_only, options.arch)
     except (PackageError, OSError) as error:
         parser.exit(1, f"Packaging failed: {error}\n")
     print(f"Output: {result}\nIt contains no game data. The launcher imports your own disc.")

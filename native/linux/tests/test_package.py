@@ -87,24 +87,27 @@ class OutputTests(unittest.TestCase):
 
 class LibraryTests(unittest.TestCase):
     def test_system_and_driver_libraries_stay_on_the_host(self):
-        for name in ("libc.so.6", "ld-linux-aarch64.so.1", "libstdc++.so.6", "libgcc_s.so.1", "libGL.so.1",
-                     "libvulkan.so.1", "libX11.so.6", "libxcb.so.1", "libasound.so.2", "libdrm.so.2",
-                     "libz.so.1", "libudev.so.1"):
+        for name in (
+                "libc.so.6", "ld-linux-aarch64.so.1", "libstdc++.so.6", "libgcc_s.so.1", "libGL.so.1",
+                "libvulkan.so.1", "libX11.so.6", "libxcb.so.1", "libasound.so.2", "libdrm.so.2",
+                "libz.so.1", "libudev.so.1"):
             self.assertTrue(package.EXCLUDED_LIBRARIES.match(name), name)
 
     def test_desktop_libraries_are_bundled(self):
-        for name in ("libpulse.so.0", "libpulsecommon-16.1.so", "libwayland-client.so.0", "libXrandr.so.2",
-                     "libXi.so.6", "libatomic.so.1", "libxkbcommon.so.0", "libbluetooth.so.3"):
+        for name in (
+                "libpulse.so.0", "libpulsecommon-16.1.so", "libwayland-client.so.0", "libXrandr.so.2",
+                "libXi.so.6", "libatomic.so.1", "libxkbcommon.so.0", "libbluetooth.so.3"):
             self.assertIsNone(package.EXCLUDED_LIBRARIES.match(name), name)
 
     def test_dependencies_parse_ldd_and_skip_excluded(self):
-        output = ("\tlinux-vdso.so.1 (0x0000ffff)\n"
-                  "\tlibpulse.so.0 => /usr/lib/aarch64-linux-gnu/libpulse.so.0 (0x0000ffff8000)\n"
-                  "\tlibc.so.6 => /lib/aarch64-linux-gnu/libc.so.6 (0x0000ffff7000)\n"
-                  "\t/lib/ld-linux-aarch64.so.1 (0x0000ffff9000)\n")
+        output = (
+            "\tlinux-vdso.so.1 (0x0000ffff)\n"
+            "\tlibpulse.so.0 => /usr/lib/aarch64-linux-gnu/libpulse.so.0 (0x0000ffff8000)\n"
+            "\tlibc.so.6 => /lib/aarch64-linux-gnu/libc.so.6 (0x0000ffff7000)\n"
+            "\t/lib/ld-linux-aarch64.so.1 (0x0000ffff9000)\n")
         with patch.object(package, "run", return_value=output):
-            self.assertEqual(package.dependencies(Path("/tmp/bin")),
-                             [Path("/usr/lib/aarch64-linux-gnu/libpulse.so.0")])
+            self.assertEqual(
+                package.dependencies(Path("/tmp/bin")), [Path("/usr/lib/aarch64-linux-gnu/libpulse.so.0")])
 
     def test_unresolved_dependency_fails(self):
         with patch.object(package, "run", return_value="\tlibfoo.so.1 => not found\n"):
@@ -133,8 +136,8 @@ class PinTests(unittest.TestCase):
             for name, (url, digest) in pins.items():
                 self.assertTrue(url.startswith("https://"), (arch, name))
                 self.assertRegex(digest, r"^[0-9a-f]{64}$", (arch, name))
-                self.assertIn(arch if arch == "aarch64" else "x86_64", url.replace("linux.zip", "x86_64"),
-                              (arch, name))
+                self.assertIn(
+                    arch if arch == "aarch64" else "x86_64", url.replace("linux.zip", "x86_64"), (arch, name))
 
 
 if __name__ == "__main__":

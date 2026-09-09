@@ -20,8 +20,9 @@ class PatchPlanTests(unittest.TestCase):
         runtime = Path("/runtime")
         plan = build.patch_plan(runtime)
         names = [patch.name for _, patch in plan]
-        for name in ("apple-input.patch", "app-bundle.patch", "fast-load.patch", "branding.patch",
-                     "fluidity-settings.patch", "texture-pack.patch", "source-dol.patch"):
+        for name in (
+                "apple-input.patch", "app-bundle.patch", "fast-load.patch", "branding.patch",
+                "fluidity-settings.patch", "texture-pack.patch", "source-dol.patch"):
             self.assertNotIn(name, names)
         for _, patch in plan:
             if patch.is_relative_to(runtime):

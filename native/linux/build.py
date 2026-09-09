@@ -109,8 +109,9 @@ def build_identity(runtime):
         digest.update(patch.name.encode() + b"\0" + patch.read_bytes())
     for source, _ in copied_sources(runtime):
         digest.update(source.name.encode() + b"\0" + source.read_bytes())
-    for name in ("import_game.py", "../macos/recompile_boot.py", "../macos/high_refresh.py",
-                 "../macos/refresh/MeleeHighRefresh.h"):
+    for name in (
+            "import_game.py", "../macos/recompile_boot.py", "../macos/high_refresh.py",
+            "../macos/refresh/MeleeHighRefresh.h"):
         digest.update((HERE / name).read_bytes())
     fork = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True)
     revision = fork.stdout.strip() if fork.returncode == 0 else "unknown"
@@ -119,10 +120,11 @@ def build_identity(runtime):
 
 
 def cmake_flags(ccache):
-    flags = ["-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release", "-DBUILD_TESTING=OFF",
-             "-DDOLRECOMP_ENABLE_LLVM=OFF",
-             # The AppImage runs on hosts with older C++ runtimes.
-             "-DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -static-libgcc"]
+    flags = [
+        "-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release", "-DBUILD_TESTING=OFF",
+        "-DDOLRECOMP_ENABLE_LLVM=OFF",
+        # The AppImage runs on hosts with older C++ runtimes.
+        "-DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -static-libgcc"]
     if ccache:
         flags += ["-DCMAKE_C_COMPILER_LAUNCHER=ccache", "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"]
     return flags

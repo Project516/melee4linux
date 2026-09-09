@@ -73,10 +73,11 @@ class Tools:
         return stamp.read_text().strip() if stamp.is_file() else "development"
 
     def check(self) -> None:
-        for path in (self.dolrecomp, self.zig, self.ninja, self.module / "module_export.c",
-                     self.module / "module.exports", self.module / "gen_module_tables.py",
-                     self.module / "gxruntime/include/core/cpu.h",
-                     self.module / "staticrecomp/StaticRecompABI.h"):
+        for path in (
+                self.dolrecomp, self.zig, self.ninja, self.module / "module_export.c",
+                self.module / "module.exports", self.module / "gen_module_tables.py",
+                self.module / "gxruntime/include/core/cpu.h",
+                self.module / "staticrecomp/StaticRecompABI.h"):
             if not path.is_file():
                 raise ImportError_(f"The bundled tools are incomplete: {path}")
         for name in CPU_SOURCES:
@@ -93,8 +94,9 @@ class Status:
         self.total = 0
         self.message = ""
 
-    def update(self, message: str, completed: int = 0, total: int = 0,
-               done: bool = False, error: str = "") -> None:
+    def update(
+            self, message: str, completed: int = 0, total: int = 0,
+            done: bool = False, error: str = "") -> None:
         self.message, self.completed, self.total = message, completed, total
         line = message if not total else f"{message} ({completed} of {total})"
         print(line, flush=True)
@@ -249,8 +251,9 @@ def write_ninja(build: Path, tools: Tools, generated: Path, target: str) -> Path
     link = [str(tools.zig), "cc", "-target", target, "-shared", "-fPIC", "-o", str(module),
             *(str(o) for o in objects), "-Wl,--whole-archive", *(str(a) for a in archives),
             "-Wl,--no-whole-archive", f"-Wl,--version-script={tools.module / 'module.exports'}", "-lm"]
-    lines.append(f"build {ninja_path(module)}: link {' '.join(ninja_path(p) for p in objects + archives)} "
-                 f"| {ninja_path(tools.module / 'module.exports')}")
+    lines.append(
+        f"build {ninja_path(module)}: link {' '.join(ninja_path(p) for p in objects + archives)} "
+        f"| {ninja_path(tools.module / 'module.exports')}")
     lines.append("  link = " + ninja_command(link))
     lines.append(f"default {ninja_path(module)}")
     (build / "build.ninja").write_text("\n".join(lines) + "\n")
@@ -299,14 +302,15 @@ def build_module(game: Path, user: Path, tools: Tools, jobs: int, status: Status
     target = module_target()
     setup = user / "Setup"
     setup.mkdir(parents=True, exist_ok=True)
-    env = {**os.environ, "ZIG_GLOBAL_CACHE_DIR": str(setup / "zig-cache"),
-           "ZIG_LOCAL_CACHE_DIR": str(setup / "zig-cache")}
+    env = {
+        **os.environ, "ZIG_GLOBAL_CACHE_DIR": str(setup / "zig-cache"),
+        "ZIG_LOCAL_CACHE_DIR": str(setup / "zig-cache")}
 
     status.update("Preparing the compilation input")
     boot = load_script("recompile_boot.py")
     compilation_dol = setup / "native-boot.dol"
-    content = boot.compilation_dol((game / "sys/main.dol").read_bytes(),
-                                   (game / "sys/apploader.img").read_bytes())
+    content = boot.compilation_dol(
+        (game / "sys/main.dol").read_bytes(), (game / "sys/apploader.img").read_bytes())
     if not compilation_dol.exists() or compilation_dol.read_bytes() != content:
         compilation_dol.write_bytes(content)
 
@@ -339,8 +343,9 @@ def build_module(game: Path, user: Path, tools: Tools, jobs: int, status: Status
     for directory in (build / "runtime", build / "chunks"):
         directory.mkdir(parents=True)
     with (setup / "module-tables.log").open("w") as log:
-        run([sys.executable, tools.module / "gen_module_tables.py", generated / "generated.h",
-             generated / "generated_smc.txt", generated / "main.dol", build / "module_tables.inc"], log=log)
+        run([
+            sys.executable, tools.module / "gen_module_tables.py", generated / "generated.h",
+            generated / "generated_smc.txt", generated / "main.dol", build / "module_tables.inc"], log=log)
 
     status.update("Compiling native code", 0, len(list((generated / "chunks").glob("*.c"))))
     built = write_ninja(build, tools, generated, target)
