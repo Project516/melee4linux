@@ -1,0 +1,19 @@
+diff --git a/Source/Core/VideoCommon/Present.cpp b/Source/Core/VideoCommon/Present.cpp
+index 97fae4b05b..526cf67654 100644
+--- a/Source/Core/VideoCommon/Present.cpp
++++ b/Source/Core/VideoCommon/Present.cpp
+@@ -949,9 +949,11 @@ void Presenter::Present(PresentInfo* present_info)
+       m_onscreen_ui->DrawImGui();
+   }
+ 
+-  // Let Metal finish GPU work while the CPU waits for the presentation deadline.
+-  // PresentBackbuffer submits a final command buffer on the same ordered queue.
+-  if (g_backend_info.api_type == APIType::Metal && MeleeRender::LowLatency())
++  // Let the GPU finish game rendering while the CPU waits for the presentation
++  // deadline. Metal and Vulkan both submit the final present command buffer on
++  // the same ordered queue, so the flush changes only when work starts.
++  if ((g_backend_info.api_type == APIType::Metal || g_backend_info.api_type == APIType::Vulkan) &&
++      MeleeRender::LowLatency())
+     g_gfx->Flush();
+ 
+   // Present to the window system.

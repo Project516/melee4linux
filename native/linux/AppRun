@@ -1,0 +1,35 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# AppImage entry point. Runs the launcher by default. The runtime, the disc
+# translator, and the module builder are reachable for scripts and tests.
+set -eu
+HERE="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+export MELEE_APPDIR="$HERE"
+export MELEE_APP_BUNDLE=1
+export MELEE_STRICT_NATIVE="${MELEE_STRICT_NATIVE:-1}"
+export MODERNGEKKO_STATICRECOMP=1
+if [ -z "${MELEE_TEXTURE_PACK:-}" ] && [ -d "$HERE/usr/share/melee/Textures/GALE01" ]; then
+    export MELEE_TEXTURE_PACK="$HERE/usr/share/melee/Textures"
+fi
+case "${1:-}" in
+    --run) shift; exec "$HERE/usr/bin/MeleeRuntime" "$@" ;;
+    --import) shift; exec "$HERE/usr/bin/melee-import-game" "$@" ;;
+    --dolrecomp) shift; exec "$HERE/usr/bin/dolrecomp" "$@" ;;
+    --build-id) cat "$HERE/usr/share/melee/build-id.txt"; exit 0 ;;
+    --help|-h)
+        cat <<'USAGE'
+Melee for Linux
+
+  <AppImage>                     Open the launcher
+  <AppImage> --run [options]     Run the game runtime directly
+  <AppImage> --import [options]  Build the native module for an extracted game
+  <AppImage> --dolrecomp [args]  Run the disc translator
+  <AppImage> --build-id          Print this build's identity
+
+The launcher needs your own Melee USA v1.02 disc image. No game data is
+included. Settings, saves, and the compiled module live under
+$XDG_DATA_HOME/melee4linux (default ~/.local/share/melee4linux).
+USAGE
+        exit 0 ;;
+esac
+exec "$HERE/usr/bin/MeleeLauncher" "$@"

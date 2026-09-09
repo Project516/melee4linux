@@ -1,0 +1,9 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Run the module builder with the bundled Python. Installed beside the
+# launcher, which starts it after extracting a disc and before each game.
+set -eu
+HERE="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+SHARE="$HERE/../share/melee"
+exec "$SHARE/python/bin/python3" -I -s "$SHARE/tools/import_game.py" \
+    --tools "$SHARE" --dolrecomp "$HERE/dolrecomp" "$@"

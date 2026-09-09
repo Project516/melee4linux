@@ -1,0 +1,35 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 68bdf23..d6421b2 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -266,6 +266,11 @@ if(MODERNGEKKO_ENABLE_DOLPHIN_RUNTIME)
+             "${APPKIT_LIBRARY}" "${COREFOUNDATION_LIBRARY}" "${IOK_LIBRARY}")
+         target_compile_definitions(moderngekko PRIVATE MODERNGEKKO_HAVE_COCOA=1)
+     endif()
++    if(UNIX AND NOT APPLE)
++        # The Linux launcher passes Melee settings through the environment.
++        target_sources(moderngekko PRIVATE src/runtime/MeleeLinuxPreferences.cpp)
++        target_compile_definitions(moderngekko PRIVATE MELEE_LINUX_FRONTEND=1)
++    endif()
+     target_include_directories(moderngekko PRIVATE
+         "${CMAKE_CURRENT_SOURCE_DIR}/vendor/dolphin/GXRuntime/include")
+     if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+diff --git a/src/runtime/dolphin_runtime.cpp b/src/runtime/dolphin_runtime.cpp
+index 7cdc5aa..3560024 100644
+--- a/src/runtime/dolphin_runtime.cpp
++++ b/src/runtime/dolphin_runtime.cpp
+@@ -1,4 +1,4 @@
+-#ifdef MODERNGEKKO_HAVE_COCOA
++#if defined(MODERNGEKKO_HAVE_COCOA) || defined(MELEE_LINUX_FRONTEND)
+ extern "C" void MeleeApplyMediaPreferences();
+ #endif
+ #include "moderngekko/runtime.hpp"
+@@ -699,7 +699,7 @@ RuntimeCreateResult Runtime::Create(RuntimeConfig config) {
+   Config::SetBase(Config::MAIN_INPUT_BACKGROUND_INPUT,
+                   impl->config.input.background_input);
+ 
+-#ifdef MODERNGEKKO_HAVE_COCOA
++#if defined(MODERNGEKKO_HAVE_COCOA) || defined(MELEE_LINUX_FRONTEND)
+   MeleeApplyMediaPreferences();
+   if (impl->config.audio.mute) Config::SetCurrent(Config::MAIN_AUDIO_VOLUME,0);
+ #endif

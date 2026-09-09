@@ -1,0 +1,104 @@
+name: Linux AppImage
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'native/**'
+      - '.github/workflows/linux-appimage.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-appimage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  appimage:
+    name: AppImage (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+    - uses: actions/checkout@v6
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.13'
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          build-essential cmake ninja-build pkg-config patchelf ccache \
+          libx11-dev libxrandr-dev libxi-dev libxext-dev libwayland-dev wayland-protocols \
+          libxkbcommon-dev libasound2-dev libpulse-dev libudev-dev libgl1-mesa-dev \
+          libegl1-mesa-dev libvulkan-dev
+    - name: Cache compiler output
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ccache
+        key: ccache-${{ matrix.arch }}-${{ hashFiles('native/linux/build.py', 'native/linux/patches/*', 'native/macos/patches/*') }}
+        restore-keys: ccache-${{ matrix.arch }}-
+    - name: Cache pinned tool downloads
+      uses: actions/cache@v4
+      with:
+        path: build/native/recomp/downloads
+        key: downloads-${{ matrix.arch }}-${{ hashFiles('native/linux/package.py') }}
+    - name: Build the AppImage
+      env:
+        CCACHE_DIR: ~/.cache/ccache
+        CCACHE_MAXSIZE: 2G
+      run: python native/linux/build.py --jobs 4 --output "build/native/Melee-for-Linux-${{ matrix.arch }}.AppImage"
+    - name: Check the AppImage starts
+      run: |
+        set -eux
+        app="build/native/Melee-for-Linux-${{ matrix.arch }}.AppImage"
+        ls -l "$app"
+        "$app" --appimage-extract-and-run --help
+        "$app" --appimage-extract-and-run --build-id
+        "$app" --appimage-extract-and-run --run --help
+        "$app" --appimage-extract-and-run --dolrecomp --help > /dev/null || true
+        "$app" --appimage-extract-and-run --import --help
+    - name: Check the module compiler runs
+      run: |
+        set -eux
+        "build/native/Melee-for-Linux-${{ matrix.arch }}.AppImage" --appimage-extract
+        printf 'int answer(void) { return 42; }\n' > answer.c
+        squashfs-root/usr/share/melee/zig/zig cc -target ${{ matrix.arch }}-linux-gnu.2.28 -shared -fPIC -o answer.so answer.c
+        squashfs-root/usr/share/melee/ninja --version
+        squashfs-root/usr/share/melee/python/bin/python3 -c 'import hashlib, json, zlib; print("python ok")'
+    - uses: actions/upload-artifact@v4
+      with:
+        name: Melee-for-Linux-${{ matrix.arch }}
+        path: build/native/Melee-for-Linux-${{ matrix.arch }}.AppImage
+        if-no-files-found: error
+
+  release:
+    name: Publish release assets
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: appimage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        pattern: Melee-for-Linux-*
+        merge-multiple: true
+    - uses: softprops/action-gh-release@v2
+      with:
+        files: Melee-for-Linux-*.AppImage
+        body: |
+          Melee for Linux. Automated experiment based on Melee for Mac. Not for serious
+          use. No support promised. The AppImage contains no game data; the launcher
+          imports your own Melee USA v1.02 disc image and compiles the native module locally.
