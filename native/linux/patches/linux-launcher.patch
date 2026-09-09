@@ -1,0 +1,458 @@
+diff --git a/tools/frontend_config.cpp b/tools/frontend_config.cpp
+index 03740d4..4850611 100644
+--- a/tools/frontend_config.cpp
++++ b/tools/frontend_config.cpp
+@@ -55,6 +55,63 @@ bool ParseBoolean(const std::string &value, bool *result) {
+   return false;
+ }
+ 
++#ifdef MODERNGEKKO_GAMECUBE_CONTROLLERS
++// The Melee mapping shared with the Mac port. Face buttons follow Dolphin's
++// SDL gamepad names. The D-pad moves like the stick; keyboard keys use
++// Dolphin's X11 key names.
++void WriteGameCubeMapping(std::ofstream &output, const std::string &device,
++                          std::size_t port) {
++  struct Mapping {
++    const char *control;
++    const char *gamepad;
++    const char *keyboard;
++  };
++  static constexpr Mapping mappings[] = {
++      {"Buttons/A", "`Button A`", "J"},
++      {"Buttons/B", "`Button B`", "K"},
++      {"Buttons/X", "`Button X`", "space"},
++      {"Buttons/Y", "`Button Y`", "U"},
++      {"Buttons/Z", "`Shoulder R`", "O"},
++      {"Buttons/Start", "Start", "Return"},
++      {"Main Stick/Up", "`Left Y+` | `Pad N`", "W"},
++      {"Main Stick/Down", "`Left Y-` | `Pad S`", "S"},
++      {"Main Stick/Left", "`Left X-` | `Pad W`", "A"},
++      {"Main Stick/Right", "`Left X+` | `Pad E`", "D"},
++      {"C-Stick/Up", "`Right Y+`", "Up"},
++      {"C-Stick/Down", "`Right Y-`", "Down"},
++      {"C-Stick/Left", "`Right X-`", "Left"},
++      {"C-Stick/Right", "`Right X+`", "Right"},
++      {"Triggers/L", "`Trigger L`", "Q"},
++      {"Triggers/R", "`Trigger R`", "E"},
++      {"Triggers/L-Analog", "`Trigger L`", "Q"},
++      {"Triggers/R-Analog", "`Trigger R`", "E"},
++      {"D-Pad/Up", "", "T"},
++      {"D-Pad/Down", "", "G"},
++      {"D-Pad/Left", "", "F"},
++      {"D-Pad/Right", "", "H"},
++      {"Rumble/Motor", "`Motor L` | `Motor R`", ""},
++  };
++  const bool keyboard = device == KEYBOARD_DEVICE;
++  for (const Mapping &mapping : mappings) {
++    std::string expression = keyboard ? mapping.keyboard : mapping.gamepad;
++    if (!keyboard && port == 0 && *mapping.keyboard != '\0') {
++      expression += expression.empty() ? "" : " | ";
++      expression += "`" + std::string(KEYBOARD_DEVICE) + ":" + mapping.keyboard + "`";
++    }
++    if (!expression.empty())
++      output << mapping.control << " = " << expression << '\n';
++  }
++  output << "Main Stick/Calibration = 100.00\n"
++            "Main Stick/Dead Zone = 10.0\n"
++            "C-Stick/Calibration = 100.00\n"
++            "C-Stick/Dead Zone = 10.0\n"
++            // Gamepad triggers have no separate click. The last 10 percent of
++            // travel gives the GameCube trigger's digital press.
++            "Triggers/Dead Zone = 0.0\n"
++            "Triggers/Threshold = 90.0\n";
++}
++#endif
++
+ fs::path ControllerConfigPath(const fs::path &user_directory) {
+ #ifdef MODERNGEKKO_GAMECUBE_CONTROLLERS
+   return user_directory / "Config" / "GCPadNew.ini";
+@@ -165,6 +222,19 @@ ConfigResult LoadConfig(const fs::path &user_directory,
+                       "netplay buffer must be auto or a value from 1 to 20"};
+       }
+       config.netplay_buffer = value;
++    } else if (key == "render_fps") {
++      if (value != "60" && value != "120")
++        return {.error = "render_fps must be 60 or 120"};
++      config.melee_high_refresh = value == "120";
++    } else if (key == "low_latency") {
++      if (!ParseBoolean(value, &config.melee_low_latency))
++        return {.error = "low_latency must be true or false"};
++    } else if (key == "fast_loading") {
++      if (!ParseBoolean(value, &config.melee_fast_loading))
++        return {.error = "fast_loading must be true or false"};
++    } else if (key == "textures") {
++      if (!ParseBoolean(value, &config.melee_textures))
++        return {.error = "textures must be true or false"};
+     }
+   }
+   if (config.resolution.empty())
+@@ -270,7 +340,12 @@ bool SaveConfig(const fs::path &user_directory, const ConfigResult &config,
+        << "nickname=" << config.netplay_nickname << '\n'
+        << "address=" << config.netplay_address << '\n'
+        << "port=" << config.netplay_port << '\n'
+-       << "buffer=" << config.netplay_buffer << '\n';
++       << "buffer=" << config.netplay_buffer << '\n'
++       << "[Melee]\n"
++       << "render_fps=" << (config.melee_high_refresh ? 120 : 60) << '\n'
++       << "low_latency=" << (config.melee_low_latency ? "true" : "false") << '\n'
++       << "fast_loading=" << (config.melee_fast_loading ? "true" : "false") << '\n'
++       << "textures=" << (config.melee_textures ? "true" : "false") << '\n';
+   return true;
+ }
+ 
+@@ -372,32 +447,8 @@ bool GenerateControllerConfig(const fs::path &user_directory,
+     output << "[GCPad" << i + 1 << "]\n";
+     if (i >= controllers.size())
+       continue;
+-    output << "Device = " << controllers[i] << '\n'
+-           << "Buttons/A = `Button A`\n"
+-              "Buttons/B = `Button B`\n"
+-              "Buttons/X = `Button X`\n"
+-              "Buttons/Y = `Button Y`\n"
+-              "Buttons/Z = `Shoulder R`\n"
+-              "Buttons/Start = Start\n"
+-              "Main Stick/Up = `Left Y+`\n"
+-              "Main Stick/Down = `Left Y-`\n"
+-              "Main Stick/Left = `Left X-`\n"
+-              "Main Stick/Right = `Left X+`\n"
+-              "Main Stick/Calibration = 100.00\n"
+-              "C-Stick/Up = `Right Y+`\n"
+-              "C-Stick/Down = `Right Y-`\n"
+-              "C-Stick/Left = `Right X-`\n"
+-              "C-Stick/Right = `Right X+`\n"
+-              "C-Stick/Calibration = 100.00\n"
+-              "Triggers/L = `Trigger L`\n"
+-              "Triggers/R = `Trigger R`\n"
+-              "Triggers/L-Analog = `Trigger L`\n"
+-              "Triggers/R-Analog = `Trigger R`\n"
+-              "D-Pad/Up = `Pad N`\n"
+-              "D-Pad/Down = `Pad S`\n"
+-              "D-Pad/Left = `Pad W`\n"
+-              "D-Pad/Right = `Pad E`\n"
+-              "Rumble/Motor = `Motor L` | `Motor R`\n";
++    output << "Device = " << controllers[i] << '\n';
++    WriteGameCubeMapping(output, controllers[i], i);
+ #else
+     output << "[Wiimote" << i + 1 << "]\n";
+     if (i >= controllers.size())
+diff --git a/tools/frontend_config.hpp b/tools/frontend_config.hpp
+index 3b18d05..7eb2b0b 100644
+--- a/tools/frontend_config.hpp
++++ b/tools/frontend_config.hpp
+@@ -30,11 +30,21 @@ struct ConfigResult {
+   std::string netplay_address = "127.0.0.1";
+   std::uint16_t netplay_port = 2626;
+   std::string netplay_buffer = "auto";
++  // Melee for Linux settings. The launcher passes them to the runtime
++  // through the environment; they apply on the next launch.
++  bool melee_high_refresh = true;
++  bool melee_low_latency = true;
++  bool melee_fast_loading = true;
++  bool melee_textures = true;
+   std::string error;
+ 
+   explicit operator bool() const { return error.empty(); }
+ };
+ 
++// Dolphin's X11 keyboard device. Port 1 keeps this keyboard mapping beside a
++// gamepad, and it is the whole profile when no gamepad is connected.
++inline constexpr std::string_view KEYBOARD_DEVICE = "XInput2/0/Virtual core pointer";
++
+ const std::vector<ResolutionOption> &SupportedResolutions();
+ const std::vector<GraphicsBackendOption> &SupportedGraphicsBackends();
+ ConfigResult LoadConfig(const std::filesystem::path &user_directory,
+diff --git a/tools/moderngekko_launcher.cpp b/tools/moderngekko_launcher.cpp
+index 7699c3d..457d2ff 100644
+--- a/tools/moderngekko_launcher.cpp
++++ b/tools/moderngekko_launcher.cpp
+@@ -24,6 +24,7 @@
+ #include <mutex>
+ #include <optional>
+ #include <string>
++#include <string_view>
+ #include <thread>
+ #include <unordered_map>
+ #include <vector>
+@@ -342,6 +343,118 @@ std::optional<fs::path> PrepareDisc(const fs::path& image, const fs::path& user_
+ #endif
+ }
+ 
++#if defined(__linux__)
++// Melee for Linux compiles the native game module from the extracted disc with
++// the bundled tools. The builder reports progress through a key=value file.
++void ReadImportStatus(const fs::path& status_path, ExtractionState* state)
++{
++  std::ifstream input(status_path);
++  std::string line;
++  std::string message;
++  std::string error;
++  unsigned completed = 0;
++  unsigned total = 0;
++  while (std::getline(input, line))
++  {
++    const std::size_t separator = line.find('=');
++    if (separator == std::string::npos)
++      continue;
++    const std::string_view key(line.data(), separator);
++    const std::string value = line.substr(separator + 1);
++    if (key == "message")
++      message = value;
++    else if (key == "completed")
++      completed = static_cast<unsigned>(std::strtoul(value.c_str(), nullptr, 10));
++    else if (key == "total")
++      total = static_cast<unsigned>(std::strtoul(value.c_str(), nullptr, 10));
++    else if (key == "error")
++      error = value;
++  }
++  if (message.empty())
++    return;
++  state->completed = completed;
++  state->total = std::max(1u, total);
++  std::lock_guard lock(state->mutex);
++  state->status = message;
++  if (!error.empty())
++    state->error = error;
++}
++
++bool BuildNativeModule(const fs::path& game, const fs::path& user_directory,
++                       const fs::path& release_directory, ExtractionState* state)
++{
++  auto fail = [&](std::string message)
++  {
++    std::lock_guard lock(state->mutex);
++    state->error = std::move(message);
++    state->running = false;
++    return false;
++  };
++  const fs::path builder = release_directory / "melee-import-game";
++  std::error_code ec;
++  if (!fs::is_regular_file(builder, ec))
++    return fail("The module builder is missing: " + builder.string());
++  const fs::path status_path = user_directory / "Setup" / "import-status.txt";
++  const fs::path log_path = user_directory / "Logs" / "melee-import.log";
++  fs::create_directories(status_path.parent_path(), ec);
++  fs::create_directories(log_path.parent_path(), ec);
++  fs::remove(status_path, ec);
++  {
++    std::lock_guard lock(state->mutex);
++    state->status = "Preparing the native game module";
++  }
++  state->completed = 0;
++  state->total = 1;
++  const std::array<std::string, 7> storage = {builder.string(),      "--game",   game.string(),
++                                              "--user-dir",          user_directory.string(),
++                                              "--status",            status_path.string()};
++  std::array<const char*, 8> arguments{};
++  for (std::size_t i = 0; i < storage.size(); ++i)
++    arguments[i] = storage[i].c_str();
++  SDL_Process* process = nullptr;
++  if (SDL_IOStream* log_stream = SDL_IOFromFile(log_path.string().c_str(), "w"))
++  {
++    if (const SDL_PropertiesID properties = SDL_CreateProperties())
++    {
++      SDL_SetPointerProperty(properties, SDL_PROP_PROCESS_CREATE_ARGS_POINTER, arguments.data());
++      SDL_SetNumberProperty(properties, SDL_PROP_PROCESS_CREATE_STDOUT_NUMBER,
++                            SDL_PROCESS_STDIO_REDIRECT);
++      SDL_SetPointerProperty(properties, SDL_PROP_PROCESS_CREATE_STDOUT_POINTER, log_stream);
++      SDL_SetBooleanProperty(properties, SDL_PROP_PROCESS_CREATE_STDERR_TO_STDOUT_BOOLEAN, true);
++      process = SDL_CreateProcessWithProperties(properties);
++      SDL_DestroyProperties(properties);
++    }
++    SDL_CloseIO(log_stream);
++  }
++  else
++  {
++    process = SDL_CreateProcess(arguments.data(), false);
++  }
++  if (!process)
++    return fail("Could not start the module builder: " + std::string(SDL_GetError()));
++  int exit_code = 1;
++  while (!SDL_WaitProcess(process, false, &exit_code))
++  {
++    SDL_Delay(200);
++    ReadImportStatus(status_path, state);
++  }
++  SDL_DestroyProcess(process);
++  ReadImportStatus(status_path, state);
++  if (exit_code != 0)
++  {
++    std::string error;
++    {
++      std::lock_guard lock(state->mutex);
++      error = state->error;
++    }
++    if (error.empty())
++      error = "The native module build failed.";
++    return fail(error + "\nLog: " + log_path.string());
++  }
++  return true;
++}
++#endif
++
+ bool ExtractDisc(const fs::path& image, const fs::path& user_directory,
+                  const fs::path& release_directory, ExtractionState* state)
+ {
+@@ -400,6 +513,10 @@ bool ExtractDisc(const fs::path& image, const fs::path& user_directory,
+     std::string error;
+     if (!WriteDefaultGame(user_directory, release_directory, output, &error))
+       return fail(error);
++#if defined(__linux__)
++    if (!BuildNativeModule(output, user_directory, release_directory, state))
++      return false;
++#endif
+     std::lock_guard lock(state->mutex);
+     state->finished_game = output;
+     state->status = "Using existing extraction";
+@@ -467,6 +584,10 @@ bool ExtractDisc(const fs::path& image, const fs::path& user_directory,
+   std::string error;
+   if (!WriteDefaultGame(user_directory, release_directory, output, &error))
+     return fail(error);
++#if defined(__linux__)
++  if (!BuildNativeModule(output, user_directory, release_directory, state))
++    return false;
++#endif
+ 
+   {
+     std::lock_guard lock(state->mutex);
+@@ -688,9 +809,26 @@ int main(int argc, char** argv)
+     }
+     if (controller_index < 0)
+     {
++#if defined(__linux__)
++      // Keyboard play needs no gamepad. Selecting a gamepad later replaces this.
++      std::string message;
++      const std::string keyboard(moderngekko::frontend::KEYBOARD_DEVICE);
++      if (!moderngekko::frontend::GenerateControllerConfig(user_directory, keyboard, &message))
++      {
++        std::lock_guard lock(dialog.mutex);
++        dialog.error = std::move(message);
++        return false;
++      }
++      selected_controller = keyboard;
++      configured_controllers = {keyboard};
++      controller_profile_exists = true;
++      controller_status = "Keyboard profile: WASD moves, J attacks, K special, space jumps";
++      return true;
++#else
+       std::lock_guard lock(dialog.mutex);
+       dialog.error = "Connect an SDL-compatible controller before playing";
+       return false;
++#endif
+     }
+     return select_controller(controller_index);
+   };
+@@ -780,6 +918,10 @@ int main(int argc, char** argv)
+                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                      ImGuiWindowFlags_NoSavedSettings);
+     ImGui::TextUnformatted(MODERNGEKKO_FRONTEND_NAME);
++#if defined(__linux__)
++    ImGui::TextDisabled("Automated experiment based on Melee for Mac. Not for serious use. "
++                        "No support promised.");
++#endif
+     ImGui::Separator();
+ 
+     if (current_metadata)
+@@ -820,14 +962,41 @@ int main(int argc, char** argv)
+         ImGui::TextDisabled("Solo play only.");
+         ImGui::Spacing();
+       }
++      ImGui::BeginDisabled(extraction.running);
+       if (ImGui::Button("Play", ImVec2(180 * scale, 42 * scale)))
+       {
+         if (ensure_controller())
+         {
++#if defined(__linux__)
++          // The native module is compiled from the user's disc on the first
++          // play and again after an update. The finished_game handler launches.
++          extraction.completed = 0;
++          extraction.total = 1;
++          extraction.running = true;
++          {
++            std::lock_guard lock(extraction.mutex);
++            extraction.error.clear();
++            extraction.finished_game.reset();
++          }
++          const fs::path game = current_game;
++          extraction_thread =
++              std::jthread([game, user_directory, release_directory, &extraction]
++                           {
++                             if (BuildNativeModule(game, user_directory, release_directory,
++                                                   &extraction))
++                             {
++                               std::lock_guard lock(extraction.mutex);
++                               extraction.finished_game = game;
++                               extraction.running = false;
++                             }
++                           });
++#else
+           launch_mode = LaunchMode::Solo;
+           done = true;
++#endif
+         }
+       }
++      ImGui::EndDisabled();
+       ImGui::SameLine();
+       if (ImGui::Button("Host Netplay", ImVec2(180 * scale, 42 * scale)))
+       {
+@@ -980,6 +1149,37 @@ int main(int argc, char** argv)
+         config.show_fps_in_title = show_fps_in_title;
+       }
+     }
++#if defined(__linux__)
++    ImGui::Spacing();
++    ImGui::TextUnformatted("Melee");
++    const auto save_melee_setting = [&](bool& setting)
++    {
++      config.resolution = resolutions[resolution_index].text;
++      config.show_fps_in_title = show_fps_in_title;
++      config.controller = selected_controller;
++      std::string error;
++      if (!moderngekko::frontend::SaveConfig(user_directory, config, &error))
++      {
++        setting = !setting;
++        std::lock_guard lock(dialog.mutex);
++        dialog.error = std::move(error);
++      }
++    };
++    if (ImGui::Checkbox("120 FPS visual updates (experimental, needs a 120 Hz display)",
++                        &config.melee_high_refresh))
++      save_melee_setting(config.melee_high_refresh);
++    if (ImGui::Checkbox("Lower input delay", &config.melee_low_latency))
++      save_melee_setting(config.melee_low_latency);
++    if (ImGui::Checkbox("Faster loading (skip disc seek delays)", &config.melee_fast_loading))
++      save_melee_setting(config.melee_fast_loading);
++    const bool texture_pack = std::getenv("MELEE_TEXTURE_PACK") != nullptr;
++    ImGui::BeginDisabled(!texture_pack);
++    if (ImGui::Checkbox(texture_pack ? "Upscaled textures" : "Upscaled textures (no pack in this build)",
++                        &config.melee_textures))
++      save_melee_setting(config.melee_textures);
++    ImGui::EndDisabled();
++    ImGui::TextDisabled("Displays below 120 Hz use 60 FPS. These settings apply on the next launch.");
++#endif
+     ImGui::Spacing();
+     ImGui::TextUnformatted("Controller profile");
+     const char* controller_preview = controller_index >= 0
+@@ -1153,6 +1353,23 @@ int main(int argc, char** argv)
+ #if defined(__linux__)
+       else
+         argument_storage.emplace_back("-X11");
++#endif
++#if defined(__linux__)
++      // The runtime reads these before it boots. See MeleeLinuxPreferences.cpp.
++      SDL_setenv_unsafe("MELEE_RENDER_FPS", config.melee_high_refresh ? "120" : "60", 1);
++      SDL_setenv_unsafe("MELEE_LOW_LATENCY", config.melee_low_latency ? "1" : "0", 1);
++      SDL_setenv_unsafe("MELEE_FAST_LOADING", config.melee_fast_loading ? "1" : "0", 1);
++      SDL_setenv_unsafe("MELEE_TEXTURES", config.melee_textures ? "1" : "0", 1);
++      SDL_setenv_unsafe("MELEE_APP_BUNDLE", "1", 0);
++      SDL_setenv_unsafe("MELEE_STRICT_NATIVE", "1", 0);
++      SDL_setenv_unsafe("MODERNGEKKO_STATICRECOMP", "1", 0);
++      if (const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(SDL_GetPrimaryDisplay());
++          mode != nullptr && mode->refresh_rate > 0)
++      {
++        char rate[32];
++        std::snprintf(rate, sizeof rate, "%.2f", static_cast<double>(mode->refresh_rate));
++        SDL_setenv_unsafe("MELEE_DISPLAY_HZ", rate, 1);
++      }
+ #endif
+       std::vector<const char*> arguments;
+       arguments.reserve(argument_storage.size() + 1);

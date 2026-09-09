@@ -10,7 +10,7 @@ The matching build reproduces Melee US v1.02 byte for byte.
 
 Run these commands from the repository root. For another operating system,
 start with the [upstream dependency instructions](https://github.com/doldecomp/melee/blob/ae5898ee0dfda41b34fdf846f7d680a33e14779d/.github/README.md#dependencies),
-but clone `https://github.com/t3dotgg/melee4mac.git` for work on this fork.
+but clone `https://github.com/Project516/melee4linux.git` for work on this fork.
 The [code map](code-map.md) explains where to make source changes.
 
 ## Get the original executable

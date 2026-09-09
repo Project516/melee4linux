@@ -56,8 +56,9 @@ artwork on the next launch.
 
 Older builds were named `Melee.app` or displayed as "Melee Native". The bundle
 ID and `Application Support/t3.melee.native` save folder remain the same.
-Use `git pull` on `master` and repeat the build command to update. GitHub
-redirects the old `t3dotgg/melee` repository URL to `t3dotgg/melee4mac`.
+Use `git pull` on `master` in [Project516/melee4linux](https://github.com/Project516/melee4linux)
+and repeat the build command to update. This fork's Mac build path is
+inherited from Theo's origin fork, `t3dotgg/melee4mac`.
 
 This branch defaults to experimental 120 FPS rendering and 4x internal
 resolution, 2560 × 2112. Settings, Video has 60 FPS, 120 FPS, Auto resolution,

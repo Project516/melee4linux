@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Melee for Linux
+Comment=Native Melee runtime. Needs your own Melee USA v1.02 disc image.
+Exec=AppRun
+Icon=melee4linux
+Categories=Game;
+Terminal=false
