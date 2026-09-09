@@ -106,7 +106,7 @@ struct lbl_8046B488_t;
  * @brief Convert a #SelectableCharacterKind into its #CharacterKind.
  *
  * Indexes #selkind_to_ckind_map with @p selkind. #SELKIND_ZELDA_SEAK resolves
- * to #CharacterKind::CKIND_ZELDA; the Sheik half is dropped because
+ * to #CharacterKind::CKind_Zelda; the Sheik half is dropped because
  * #SelectableCharacterKind collapses Zelda/Sheik into a single slot.
  *
  * @param[in] selkind A #SelectableCharacterKind (e.g. the CSS slot index).
@@ -120,7 +120,7 @@ struct lbl_8046B488_t;
  * @brief Convert a #CharacterKind into its #SelectableCharacterKind.
  *
  * Indexes #ckind_to_selkind_map with @p ckind. Both
- * #CharacterKind::CKIND_ZELDA and #CharacterKind::CKIND_SEAK collapse onto
+ * #CharacterKind::CKind_Zelda and #CharacterKind::CKind_Seak collapse onto
  * #SELKIND_ZELDA_SEAK, so this direction is lossy with respect to the
  * Zelda/Sheik split, not to mention all the non-playable characters.
  *
@@ -136,7 +136,7 @@ struct lbl_8046B488_t;
 /* 1641B4 */ float fn_801641B4(u8);
 /* 1641CC */ u16 gm_801641CC(u8);
 /* 1641E4 */ void gm_801641E4(u8 stage, u8 enable);
-/* 164250 */ s32 gm_80164250(u16);
+/* 164250 */ s32 gm_IsStageUnlocked(u16);
 /* 1642A0 */ bool fn_801642A0(void);
 /* 164330 */ bool gm_80164330(s32);
 /* 164430 */ bool gm_80164430(u16);
@@ -226,7 +226,7 @@ gm_80167BC8(struct VsModeData*); // inits VsModeData from game rules
 /* 168F88 */ void gm_80168F88(void);
 /* 168FC4 */ void gm_LoadAnnouncer(void);
 /* 169000 */ s32 fn_80169000(void* arg0, void* arg1);
-/* 169238 */ u8 gm_80169238(u8);
+/* 169238 */ u8 gm_GetNumCostumesForCKind(u8);
 /* 169264 */ u8 gm_80169264(u8);
 /* 169290 */ u8 gm_80169290(u8);
 /* 1692BC */ u8 gm_801692BC(u8);

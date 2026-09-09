@@ -8,13 +8,13 @@
 #include "gobjuserdata.h"
 #include "objalloc.h"
 
-void GObj_PReorder(HSD_GObj* gobj, HSD_GObj* predecessor)
+void GObj_PReorder(HSD_GObj* gobj, HSD_GObj* hiprio_gobj)
 {
     u8 link = gobj->p_link;
-    gobj->prev = predecessor;
-    if (predecessor != NULL) {
-        gobj->next = predecessor->next;
-        predecessor->next = gobj;
+    gobj->prev = hiprio_gobj;
+    if (hiprio_gobj != NULL) {
+        gobj->next = hiprio_gobj->next;
+        hiprio_gobj->next = gobj;
     } else {
         gobj->next = ((HSD_GObj**) HSD_GObj_Entities)[link];
         ((HSD_GObj**) HSD_GObj_Entities)[link] = gobj;
@@ -28,38 +28,39 @@ void GObj_PReorder(HSD_GObj* gobj, HSD_GObj* predecessor)
 
 extern HSD_ObjAllocData gobj_alloc_data;
 
-// Keep this wrapper: a direct call changes CreateGObj register allocation.
-static inline HSD_GObj* allocateObject(void)
+static inline HSD_GObj* gobj_allocate(void)
 {
     return HSD_ObjAlloc(&gobj_alloc_data);
 }
 
-static inline void insertAfterEqualPriority(HSD_GObj* gobj)
+static inline void gobj_first_lower_prio(HSD_GObj* gobj)
 {
-    HSD_GObj* candidate = plinklow_gobjs[gobj->p_link];
-    while (candidate != NULL && candidate->p_priority > gobj->p_priority) {
-        candidate = candidate->prev;
+    HSD_GObj* var_r4 = plinklow_gobjs[gobj->p_link];
+    while (var_r4 != NULL && var_r4->p_priority > gobj->p_priority) {
+        var_r4 = var_r4->prev;
     }
-    GObj_PReorder(gobj, candidate);
+    GObj_PReorder(gobj, var_r4);
 }
 
-static inline void insertBeforeEqualPriority(HSD_GObj* gobj)
+static inline void gobj_first_higher_prio(HSD_GObj* gobj)
 {
-    HSD_GObj* candidate = ((HSD_GObj**) HSD_GObj_Entities)[gobj->p_link];
-    while (candidate != NULL && candidate->p_priority < gobj->p_priority) {
-        candidate = candidate->next;
+    HSD_GObj* var_r4 = ((HSD_GObj**) HSD_GObj_Entities)[gobj->p_link];
+    while (var_r4 != NULL && var_r4->p_priority < gobj->p_priority) {
+        var_r4 = var_r4->next;
     }
-    GObj_PReorder(gobj, candidate != NULL ? candidate->prev
-                                          : plinklow_gobjs[gobj->p_link]);
+    GObj_PReorder(gobj, var_r4 != NULL ? var_r4->prev
+                                       : plinklow_gobjs[gobj->p_link]);
 }
 
+extern char lbl_804084B8[];
+extern char lbl_804084C4[];
 HSD_GObj* CreateGObj(s32 where, u16 classifier, u8 p_link, u8 priority,
                      HSD_GObj* position)
 {
     HSD_GObj* gobj;
 
     HSD_ASSERT(0xA8, p_link <= HSD_GObjLibInitData.p_link_max);
-    if ((gobj = allocateObject()) == NULL) {
+    if ((gobj = gobj_allocate()) == NULL) {
         return NULL;
     }
     gobj->classifier = classifier;
@@ -68,7 +69,7 @@ HSD_GObj* CreateGObj(s32 where, u16 classifier, u8 p_link, u8 priority,
     gobj->p_priority = priority;
     gobj->render_priority = 0;
     gobj->obj_kind = HSD_GOBJ_OBJ_NONE;
-    gobj->user_data_kind = HSD_GOBJ_USER_DATA_NONE;
+    gobj->user_data_kind = 0xFF;
     gobj->prev_gx = NULL;
     gobj->next_gx = NULL;
     gobj->proc = NULL;
@@ -79,10 +80,10 @@ HSD_GObj* CreateGObj(s32 where, u16 classifier, u8 p_link, u8 priority,
     gobj->user_data_remove_func = NULL;
     switch (where) {
     case 0:
-        insertAfterEqualPriority(gobj);
+        gobj_first_lower_prio(gobj);
         break;
     case 1:
-        insertBeforeEqualPriority(gobj);
+        gobj_first_higher_prio(gobj);
         break;
     case 2: // insert after position
         GObj_PReorder(gobj, position);
@@ -99,8 +100,21 @@ HSD_GObj* GObj_Create(u16 classifier, u8 p_link, u8 priority)
     return CreateGObj(0, classifier, p_link, priority, NULL);
 }
 
-static inline void unlinkObject(HSD_GObj* gobj)
+void HSD_GObjFree(HSD_GObj* gobj)
 {
+    HSD_ASSERT(0x171, gobj);
+    if (!HSD_GObj_DelayedProcInfo.in_delayed_proc &&
+        gobj == HSD_GObj_CurrentInvokedProcGObj)
+    {
+        HSD_GObj_DelayedProcInfo.delay_remove_gobj = 1;
+        return;
+    }
+    GObj_RemoveUserData(gobj);
+    HSD_GObjObject_80390B0C(gobj);
+    HSD_GObjProc_RemoveAllProcs(gobj);
+    if (gobj->gx_link != HSD_GOBJ_GXLINK_NONE) {
+        HSD_GObjGXLink_8039084C(gobj);
+    }
     if (gobj->prev != NULL) {
         gobj->prev->next = gobj->next;
     } else {
@@ -111,85 +125,76 @@ static inline void unlinkObject(HSD_GObj* gobj)
     } else {
         plinklow_gobjs[gobj->p_link] = gobj->prev;
     }
-}
-
-void HSD_GObjPLink_80390228(HSD_GObj* gobj)
-{
-    HSD_ASSERT(0x171, gobj);
-    // The scheduler applies changes to its active owner after the callback.
-    if (!HSD_GObj_804CE3E4.b0 && gobj == HSD_GObj_804D781C) {
-        HSD_GObj_804CE3E4.b1 = 1;
-        return;
-    }
-    GObj_RemoveUserData(gobj);
-    HSD_GObjObject_80390B0C(gobj);
-    HSD_GObjProc_8038FED4(gobj);
-    if (gobj->gx_link != HSD_GOBJ_GXLINK_NONE) {
-        HSD_GObjGXLink_8039084C(gobj);
-    }
-    unlinkObject(gobj);
     HSD_ObjFree(&gobj_alloc_data, gobj);
 }
 
-void HSD_GObjPLink_8039032C(u32 where, HSD_GObj* gobj, u8 p_link, u8 priority,
-                            HSD_GObj* position)
+void HSD_GObjPLink_ChangeGObjPri_Unk(u32 arg0, HSD_GObj* gobj, u8 p_link,
+                                     u8 priority, HSD_GObj* position)
 {
-    HSD_GObjProc* detached_processes;
-    HSD_GObjProc* next_owned_process;
-    HSD_GObjProc* process;
-    s32 next_tag;
-    s32 previous_tag;
+    HSD_GObjProc* proc_cur;
+    HSD_GObjProc* child;
+    HSD_GObjProc* cur;
+    s32 flags_cur;
+    s32 flags_new;
 
     u8 _[8];
 
     HSD_ASSERT(0x1A3, p_link <= HSD_GObjLibInitData.p_link_max);
-    // The scheduler applies changes to its active owner after the callback.
-    if (!HSD_GObj_804CE3E4.b0 && gobj == HSD_GObj_804D781C) {
-        HSD_GObj_804CE3E4.b3 = 1;
-        HSD_GObj_804CE3E4.type = where;
-        HSD_GObj_804CE3E4.p_link = p_link;
-        HSD_GObj_804CE3E4.p_prio = priority;
-        HSD_GObj_804CE3E4.gobj = position;
+    if (!HSD_GObj_DelayedProcInfo.in_delayed_proc &&
+        gobj == HSD_GObj_CurrentInvokedProcGObj)
+    {
+        HSD_GObj_DelayedProcInfo.delay_change_gobj_pri = 1;
+        HSD_GObj_DelayedProcInfo.type = arg0;
+        HSD_GObj_DelayedProcInfo.p_link = p_link;
+        HSD_GObj_DelayedProcInfo.p_prio = priority;
+        HSD_GObj_DelayedProcInfo.gobj = position;
         return;
     }
-    // Reverse the owner list so reinsertion restores its original order.
-    process = gobj->proc;
-    detached_processes = NULL;
-    while (process != NULL) {
-        HSD_GObjProc_8038FC18(process);
-        next_owned_process = process->child;
-        process->child = detached_processes;
-        detached_processes = process;
-        process = next_owned_process;
+    cur = gobj->proc;
+    proc_cur = NULL;
+    while (cur != NULL) {
+        HSD_GObjProc_UnqueueProc(cur);
+        child = cur->child;
+        cur->child = proc_cur;
+        proc_cur = cur;
+        cur = child;
     }
     gobj->proc = NULL;
-    unlinkObject(gobj);
+    if (gobj->prev != NULL) {
+        gobj->prev->next = gobj->next;
+    } else {
+        ((HSD_GObj**) HSD_GObj_Entities)[gobj->p_link] = gobj->next;
+    }
+    if (gobj->next != NULL) {
+        gobj->next->prev = gobj->prev;
+    } else {
+        plinklow_gobjs[gobj->p_link] = gobj->prev;
+    }
     gobj->p_link = p_link;
     gobj->p_priority = priority;
-    switch (where) {
+    switch (arg0) {
     case 0:
-        insertAfterEqualPriority(gobj);
+        gobj_first_lower_prio(gobj);
         break;
     case 1:
-        insertBeforeEqualPriority(gobj);
+        gobj_first_higher_prio(gobj);
         break;
-    case 2: // insert after position
+    case 2:
         GObj_PReorder(gobj, position);
         break;
-    case 3: // insert before position
+    case 3:
         GObj_PReorder(gobj, position->prev);
         break;
     }
-    // Refresh a tag that would match the next traversal. Keep the current tag.
-    previous_tag = HSD_GObj_804D783C == 0 ? 2 : HSD_GObj_804D783C - 1;
-    next_tag = previous_tag == 0 ? 2 : previous_tag - 1;
-    process = detached_processes;
-    while (process != NULL) {
-        next_owned_process = process->child;
-        HSD_GObjProc_8038FAA8(process);
-        if (process->flags_3 == next_tag) {
-            process->flags_3 = previous_tag;
+    flags_new = HSD_GObj_804D783C == 0 ? 2 : HSD_GObj_804D783C - 1;
+    flags_cur = flags_new == 0 ? 2 : flags_new - 1;
+    cur = proc_cur;
+    while (cur != NULL) {
+        child = cur->child;
+        HSD_GObjProc_QueueProc(cur);
+        if (cur->flags_3 == flags_cur) {
+            cur->flags_3 = flags_new;
         }
-        process = next_owned_process;
+        cur = child;
     }
 }
