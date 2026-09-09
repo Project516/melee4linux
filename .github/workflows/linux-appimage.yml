@@ -46,7 +46,7 @@ jobs:
     - name: Cache compiler output
       uses: actions/cache@v4
       with:
-        path: ~/.cache/ccache
+        path: ${{ github.workspace }}/.ccache
         key: ccache-${{ matrix.arch }}-${{ hashFiles('native/linux/build.py', 'native/linux/patches/*', 'native/macos/patches/*') }}
         restore-keys: ccache-${{ matrix.arch }}-
     - name: Cache pinned tool downloads
@@ -56,7 +56,7 @@ jobs:
         key: downloads-${{ matrix.arch }}-${{ hashFiles('native/linux/package.py') }}
     - name: Build the AppImage
       env:
-        CCACHE_DIR: ~/.cache/ccache
+        CCACHE_DIR: ${{ github.workspace }}/.ccache
         CCACHE_MAXSIZE: 2G
       run: python native/linux/build.py --jobs 4 --output "build/native/Melee-for-Linux-${{ matrix.arch }}.AppImage"
     - name: Check the AppImage starts
