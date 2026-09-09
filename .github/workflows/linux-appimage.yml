@@ -52,8 +52,8 @@ jobs:
     - name: Cache pinned tool downloads
       uses: actions/cache@v4
       with:
-        path: build/native/recomp/downloads
-        key: downloads-${{ matrix.arch }}-${{ hashFiles('native/linux/package.py') }}
+        path: build/native/downloads
+        key: downloads-2-${{ matrix.arch }}-${{ hashFiles('native/linux/package.py') }}
     - name: Build the AppImage
       env:
         CCACHE_DIR: ${{ github.workspace }}/.ccache

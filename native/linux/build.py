@@ -161,7 +161,9 @@ def main():
             parser.error(f"Disc image does not exist: {iso}")
 
     runtime = args.runtime_dir.expanduser().resolve()
-    if not runtime.exists():
+    if not (runtime / ".git").exists():
+        if runtime.exists():
+            raise RuntimeError(f"{runtime} exists but is not a git checkout. Remove it or pass --runtime-dir.")
         runtime.parent.mkdir(parents=True, exist_ok=True)
         run("git", "clone", RUNTIME_URL, runtime)
         run("git", "checkout", "--detach", RUNTIME_REV, cwd=runtime)
@@ -210,7 +212,7 @@ def main():
     if args.appdir_only:
         package_options.append("--appdir-only")
     run(sys.executable, HERE / "package.py", "--runtime-dir", runtime, "--output", args.output,
-        "--downloads", runtime / "downloads", "--replace", *package_options)
+        "--downloads", runtime.parent / "downloads", "--replace", *package_options)
 
     if iso is None:
         return
