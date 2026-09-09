@@ -155,7 +155,7 @@ static struct {
     /* 1 */ u8 x1;
     /* 2 */ u8 x2;
     /* 3 */ u8 x3;
-} lbl_803D51A0[CKIND_PLAYABLE_COUNT] = {
+} lbl_803D51A0[CKind_Playable_Count] = {
     { 0x06, 0x02, 0x05, 0x04 }, { 0x05, 0x02, 0x03, 0x04 },
     { 0x04, 0x01, 0x02, 0x03 }, { 0x04, 0x01, 0x02, 0x03 },
     { 0x06, 0x03, 0x02, 0x04 }, { 0x04, 0x01, 0x02, 0x00 },
@@ -173,222 +173,222 @@ static struct {
 
 static struct ResultAnimEntry lbl_803D53A8[0x1B] = {
     {
-        CKIND_CAPTAIN,
+        CKind_Captain,
         "GmRstMCa.dat",
     },
     {
-        CKIND_CLINK,
+        CKind_CLink,
         "GmRstMCl.dat",
     },
     {
-        CKIND_DONKEY,
+        CKind_Donkey,
         "GmRstMDk.dat",
     },
     {
-        CKIND_DRMARIO,
+        CKind_DrMario,
         "GmRstMDr.dat",
     },
     {
-        CKIND_FALCO,
+        CKind_Falco,
         "GmRstMFc.dat",
     },
     {
-        CKIND_FOX,
+        CKind_Fox,
         "GmRstMFx.dat",
     },
     {
-        CKIND_GAMEWATCH,
+        CKind_GameWatch,
         "GmRstMGw.dat",
     },
     {
-        CKIND_GANON,
+        CKind_Ganon,
         "GmRstMGn.dat",
     },
     {
-        CKIND_KIRBY,
+        CKind_Kirby,
         "GmRstMKb.dat",
     },
     {
-        CKIND_KOOPA,
+        CKind_Koopa,
         "GmRstMKp.dat",
     },
     {
-        CKIND_LINK,
+        CKind_Link,
         "GmRstMLk.dat",
     },
     {
-        CKIND_LUIGI,
+        CKind_Luigi,
         "GmRstMLg.dat",
     },
     {
-        CKIND_MARS,
+        CKind_Mars,
         "GmRstMMs.dat",
     },
     {
-        CKIND_MARIO,
+        CKind_Mario,
         "GmRstMMr.dat",
     },
     {
-        CKIND_MEWTWO,
+        CKind_Mewtwo,
         "GmRstMMt.dat",
     },
     {
-        CKIND_NESS,
+        CKind_Ness,
         "GmRstMNs.dat",
     },
     {
-        CKIND_POPONANA,
+        CKind_PopoNana,
         "GmRstMPn.dat",
     },
     {
-        CKIND_PEACH,
+        CKind_Peach,
         "GmRstMPe.dat",
     },
     {
-        CKIND_PIKACHU,
+        CKind_Pikachu,
         "GmRstMPk.dat",
     },
     {
-        CKIND_PICHU,
+        CKind_Pichu,
         "GmRstMPc.dat",
     },
     {
-        CKIND_PURIN,
+        CKind_Purin,
         "GmRstMPr.dat",
     },
     {
-        CKIND_SAMUS,
+        CKind_Samus,
         "GmRstMSs.dat",
     },
     {
-        CKIND_SEAK,
+        CKind_Seak,
         "GmRstMSk.dat",
     },
     {
-        CKIND_YOSHI,
+        CKind_Yoshi,
         "GmRstMYs.dat",
     },
     {
-        CKIND_ZELDA,
+        CKind_Zelda,
         "GmRstMZd.dat",
     },
     {
-        CKIND_EMBLEM,
+        CKind_Emblem,
         "GmRstMFe.dat",
     },
     {
-        CHKIND_NONE,
+        ChKind_None,
         NULL,
     },
 };
 
 static struct VictoryTheme ckind_victory_themes[0x1B] = {
     {
-        CKIND_CAPTAIN,
+        CKind_Captain,
         0x11,
     },
     {
-        CKIND_DONKEY,
+        CKind_Donkey,
         0xD,
     },
     {
-        CKIND_FOX,
+        CKind_Fox,
         0x10,
     },
     {
-        CKIND_GAMEWATCH,
+        CKind_GameWatch,
         0xF,
     },
     {
-        CKIND_KIRBY,
+        CKind_Kirby,
         0x14,
     },
     {
-        CKIND_KOOPA,
+        CKind_Koopa,
         0x16,
     },
     {
-        CKIND_LINK,
+        CKind_Link,
         0x15,
     },
     {
-        CKIND_LUIGI,
+        CKind_Luigi,
         0x16,
     },
     {
-        CKIND_MARIO,
+        CKind_Mario,
         0x16,
     },
     {
-        CKIND_MARS,
+        CKind_Mars,
         0xE,
     },
     {
-        CKIND_MEWTWO,
+        CKind_Mewtwo,
         0x18,
     },
     {
-        CKIND_NESS,
+        CKind_Ness,
         0x17,
     },
     {
-        CKIND_PEACH,
+        CKind_Peach,
         0x16,
     },
     {
-        CKIND_PIKACHU,
+        CKind_Pikachu,
         0x18,
     },
     {
-        CKIND_POPONANA,
+        CKind_PopoNana,
         0x13,
     },
     {
-        CKIND_PURIN,
+        CKind_Purin,
         0x18,
     },
     {
-        CKIND_SAMUS,
+        CKind_Samus,
         0x19,
     },
     {
-        CKIND_YOSHI,
+        CKind_Yoshi,
         0x1D,
     },
     {
-        CKIND_ZELDA,
+        CKind_Zelda,
         0x15,
     },
     {
-        CKIND_SEAK,
+        CKind_Seak,
         0x15,
     },
     {
-        CKIND_FALCO,
+        CKind_Falco,
         0x10,
     },
     {
-        CKIND_CLINK,
+        CKind_CLink,
         0x15,
     },
     {
-        CKIND_DRMARIO,
+        CKind_DrMario,
         0x16,
     },
     {
-        CKIND_EMBLEM,
+        CKind_Emblem,
         0xE,
     },
     {
-        CKIND_PICHU,
+        CKind_Pichu,
         0x18,
     },
     {
-        CKIND_GANON,
+        CKind_Ganon,
         0x15,
     },
     {
-        CHKIND_NONE,
+        ChKind_None,
         -1,
     },
 };
@@ -480,7 +480,7 @@ u32 fn_80160400(CharacterKind ckind)
             ckind = theme[1].ckind;
             theme++;
 
-            if (ckind == CHKIND_NONE) {
+            if (ckind == ChKind_None) {
                 return -1;
             }
         }
@@ -494,12 +494,12 @@ char* gm_80160438(s32 ckind)
 
     while (true) {
         id = entry->ckind;
-        if (id == ckind || id == CHKIND_NONE) {
+        if (id == ckind || id == ChKind_None) {
             return entry->path;
         }
         id = entry[1].ckind;
         entry++;
-        if (id == CHKIND_NONE) {
+        if (id == ChKind_None) {
             return NULL;
         }
     }
@@ -735,18 +735,18 @@ const char* gm_80160A60(int arg0)
 
     if (Player_GetPlayerSlotType(arg0) != Gm_PKind_NA) {
         ckind = Player_GetPlayerCharacter(arg0);
-        if (ckind == CKIND_ZELDA || ckind == CKIND_SEAK) {
-            if (Player_80036394(arg0) == FTKIND_SEAK) {
+        if (ckind == CKind_Zelda || ckind == CKind_Seak) {
+            if (Player_80036394(arg0) == Ft_Kind_Seak) {
                 if (lbLang_IsSavedLanguageUS()) {
-                    return lbl_803D4FDC[CKIND_SEAK];
+                    return lbl_803D4FDC[CKind_Seak];
                 } else {
-                    return lbl_803D4D74[CKIND_SEAK];
+                    return lbl_803D4D74[CKind_Seak];
                 }
             } else {
                 if (lbLang_IsSavedLanguageUS()) {
-                    return lbl_803D4FDC[CKIND_ZELDA];
+                    return lbl_803D4FDC[CKind_Zelda];
                 } else {
-                    return lbl_803D4D74[CKIND_ZELDA];
+                    return lbl_803D4D74[CKind_Zelda];
                 }
             }
         }
@@ -2141,7 +2141,7 @@ u8 gm_CKindToSelKind(u8 ckind)
 
 bool gm_8016403C(u8 item)
 {
-    u64 item_mask = gmMainLib_8015CC58()->item_mask;
+    u64 item_mask = gmMainLib_GetGamePrefs()->item_mask;
     if ((1LL << item) & item_mask) {
         return true;
     }
@@ -2151,7 +2151,7 @@ bool gm_8016403C(u8 item)
 void fn_801640B0(u64* item_mask)
 {
     int i;
-    struct gmm_x1CB0* temp_r30 = gmMainLib_8015CC58();
+    struct GamePrefs* temp_r30 = gmMainLib_GetGamePrefs();
 
     for (i = 0; i < 0x20; i++) {
         int shift;
@@ -2183,19 +2183,18 @@ u16 gm_801641CC(u8 arg0)
 void gm_801641E4(u8 stage, u8 enable)
 {
     if (enable) {
-        gmMainLib_8015CC58()->stage_mask |= 1 << stage;
+        gmMainLib_GetGamePrefs()->stage_mask |= 1 << stage;
     } else {
-        gmMainLib_8015CC58()->stage_mask &= ~(1 << stage);
+        gmMainLib_GetGamePrefs()->stage_mask &= ~(1 << stage);
     }
 }
 
-s32 gm_80164250(u16 mask)
+bool gm_IsStageUnlocked(u16 stkind)
 {
-    bool tmp = (1 << mask) & gmMainLib_8015CC58()->stage_mask;
-    if (tmp) {
-        return 1;
+    if ((1 << stkind) & gmMainLib_GetGamePrefs()->stage_mask) {
+        return true;
     }
-    return 0;
+    return false;
 }
 
 bool fn_801642A0(void)
@@ -2207,7 +2206,7 @@ bool fn_801642A0(void)
     var_r30 = 0;
     var_r29 = 0;
     do {
-        if ((1 << (u16) var_r29) & gmMainLib_8015CC58()->stage_mask) {
+        if ((1 << (u16) var_r29) & gmMainLib_GetGamePrefs()->stage_mask) {
             var_r0 = 1;
         } else {
             var_r0 = 0;
@@ -2241,7 +2240,7 @@ bool gm_80164330(s32 arg0)
     total_stages_on = 0;
     i = 0;
     for (i = 0; i < 0x1D; i++) {
-        if ((1 << (u16) i) & gmMainLib_8015CC58()->stage_mask) {
+        if ((1 << (u16) i) & gmMainLib_GetGamePrefs()->stage_mask) {
             var_r0 = 1;
         } else {
             var_r0 = 0;
@@ -2253,8 +2252,8 @@ bool gm_80164330(s32 arg0)
     if (total_stages_on == 0) {
         OSReport("RandomStageSwitch All-Off!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
     }
-    return ((1 << (u16) arg0) & gmMainLib_8015CC58()->stage_mask) ? true
-                                                                  : false;
+    return ((1 << (u16) arg0) & gmMainLib_GetGamePrefs()->stage_mask) ? true
+                                                                      : false;
 }
 
 bool gm_80164430(u16 arg0)
@@ -2450,42 +2449,42 @@ bool fn_80164B48(void)
 
     ptr = gmMainLib_GetUnlockedCharactersBitmaskPtr();
     if (!is_character_unlocked(
-            gm_SelKindToUnlockIndex(ckind_to_selkind_map[CKIND_DRMARIO]), ptr))
+            gm_SelKindToUnlockIndex(ckind_to_selkind_map[CKind_DrMario]), ptr))
     {
         return false;
     }
 
     ptr = gmMainLib_GetUnlockedCharactersBitmaskPtr();
     if (!is_character_unlocked(
-            gm_SelKindToUnlockIndex(ckind_to_selkind_map[CKIND_GANON]), ptr))
+            gm_SelKindToUnlockIndex(ckind_to_selkind_map[CKind_Ganon]), ptr))
     {
         return false;
     }
 
     ptr = gmMainLib_GetUnlockedCharactersBitmaskPtr();
     if (!is_character_unlocked(
-            gm_SelKindToUnlockIndex(ckind_to_selkind_map[CKIND_CLINK]), ptr))
+            gm_SelKindToUnlockIndex(ckind_to_selkind_map[CKind_CLink]), ptr))
     {
         return false;
     }
 
     ptr = gmMainLib_GetUnlockedCharactersBitmaskPtr();
     if (!is_character_unlocked(
-            gm_SelKindToUnlockIndex(ckind_to_selkind_map[CKIND_FALCO]), ptr))
+            gm_SelKindToUnlockIndex(ckind_to_selkind_map[CKind_Falco]), ptr))
     {
         return false;
     }
 
     ptr = gmMainLib_GetUnlockedCharactersBitmaskPtr();
     if (!is_character_unlocked(
-            gm_SelKindToUnlockIndex(ckind_to_selkind_map[CKIND_PICHU]), ptr))
+            gm_SelKindToUnlockIndex(ckind_to_selkind_map[CKind_Pichu]), ptr))
     {
         return false;
     }
 
     ptr = gmMainLib_GetUnlockedCharactersBitmaskPtr();
     if (!is_character_unlocked(
-            gm_SelKindToUnlockIndex(ckind_to_selkind_map[CKIND_EMBLEM]), ptr))
+            gm_SelKindToUnlockIndex(ckind_to_selkind_map[CKind_Emblem]), ptr))
     {
         return false;
     }
@@ -2767,8 +2766,7 @@ s32 fn_8016588C(lbl_8046B6A0_24C_t* arg0, s32 arg1)
     } else {
         u16 a = arg0->x58[arg1].xA;
         return fn_8016588C_clamp(arg0->x58[arg1].x20 -
-                                 (arg0->x58[arg1].x24 - a) +
-                                 a * (s8) arg0->xC);
+                                 (arg0->x58[arg1].x24 - a) + a * arg0->xC);
     }
 }
 
@@ -3128,7 +3126,7 @@ s32 gm_80166A98(MatchEnd* arg0, u8 arg1, s8 arg2, u8 arg3, s8 arg4, u8 arg5,
 
     for (i = 0; i < 4; i++) {
         arg0->player_standings[i].x30 += 6 - i;
-        if (arg0->player_standings[i].ckind == CHKIND_NONE) {
+        if (arg0->player_standings[i].ckind == ChKind_None) {
             arg0->player_standings[i].pkind = 3;
         } else if (HSD_PadMasterStatus[(u8) i].err == 0) {
             arg0->player_standings[i].pkind = 0;
@@ -3136,9 +3134,9 @@ s32 gm_80166A98(MatchEnd* arg0, u8 arg1, s8 arg2, u8 arg3, s8 arg4, u8 arg5,
             arg0->player_standings[i].pkind = 1;
         }
 
-        if (arg0->player_standings[i].ckind == CKIND_SEAK) {
-            arg0->player_standings[i].ckind = CKIND_ZELDA;
-            arg0->player_standings[i].ftkind = FTKIND_SEAK;
+        if (arg0->player_standings[i].ckind == CKind_Seak) {
+            arg0->player_standings[i].ckind = CKind_Zelda;
+            arg0->player_standings[i].ftkind = Ft_Kind_Seak;
         }
     }
 
@@ -3490,7 +3488,7 @@ void gm_801678F8(int port, int arg1, int arg2)
 void gm_SetupPlayerDefaults(struct PlayerInitData* player)
 {
     memzero(player, sizeof(*player));
-    player->ckind = CHKIND_NONE;
+    player->ckind = ChKind_None;
     player->slot_type = Gm_PKind_NA;
     player->stocks = 0;
     player->color = 0;
@@ -3564,13 +3562,13 @@ void gm_InitVsMode(VsModeData* vs)
 void gm_80167BC8(VsModeData* vs_data)
 {
     GameRules* rules;
-    struct gmm_x1CB0* prefs;
+    struct GamePrefs* prefs;
     s32 i;
     s8* handicap;
     PAD_STACK(72);
 
     rules = gmMainLib_GetGameRules();
-    prefs = gmMainLib_8015CC58();
+    prefs = gmMainLib_GetGamePrefs();
     vs_data->start.rules.timer_enabled = 0;
 
     switch (rules->mode) {
@@ -3640,7 +3638,7 @@ void gm_80167BC8(VsModeData* vs_data)
     vs_data->start.rules.friendly_fire = (rules->friendly_fire & 1);
     vs_data->start.rules.x30 = 0.1f * rules->damage_ratio;
     vs_data->start.rules.item_freq = (s8) prefs->item_freq;
-    prefs = gmMainLib_8015CC58();
+    prefs = gmMainLib_GetGamePrefs();
     i = 0;
     do {
         u8 item = lbl_803B7844[(u8) i];
@@ -3711,25 +3709,25 @@ void gm_80167FC4(SSSData* arg0)
     int i;
 
     u16* temp_r25;
-    s32 temp_r28;
+    StKind temp_r28;
     u8 temp_r3_2;
 
     PAD_STACK(8);
 
     temp_r3 = gmMainLib_GetGameRules();
-    if (temp_r3->unk_x7 == 1) {
-        arg0->force_stage_id = mnStageSel_8025BBD4();
+    if (temp_r3->stage_sel == 1) {
+        arg0->force_stage_id = mnSelStageRandom();
         return;
     }
     arg0->force_stage_id = -1;
-    switch (temp_r3->unk_x7) {
+    switch (temp_r3->stage_sel) {
     case 0:
         arg0->unk_stage = 0;
         return;
     case 2:
-        for (i = 0; i < 0x1D; i++) {
+        for (i = 0; i < St_Kind_OldYoshi; i++) {
             temp_r28 = arg0->vs.ordered_stage_index + i;
-            temp_r28 = (temp_r28 + 1) % 29;
+            temp_r28 = (temp_r28 + 1) % St_Kind_OldYoshi;
             temp_r30 = mnStageSel_8025BC08(temp_r28);
             temp_r25 = gmMainLib_8015EDA4();
 
@@ -3900,29 +3898,29 @@ void fn_80168A6C(void* arg0, void* arg1, s32 idx)
 f32 gm_80168B34(CharacterKind ckind, int arg1, int arg2)
 {
     int base;
-    if (ckind == CKIND_GKOOPS) {
+    if (ckind == CKind_GKoops) {
         return 58.0F;
     }
-    if (ckind == CKIND_BOY || ckind == CKIND_GIRL) {
+    if (ckind == CKind_Boy || ckind == CKind_Girl) {
         return 26.0F;
     }
-    if (ckind == CKIND_MASTERH) {
+    if (ckind == CKind_MasterH) {
         return 28.0F;
     }
-    if (ckind == CKIND_CREZYH) {
+    if (ckind == CKind_CrezyH) {
         return 27.0F;
     }
-    if (ckind == CKIND_ZELDA || ckind == CKIND_SEAK) {
+    if (ckind == CKind_Zelda || ckind == CKind_Seak) {
         if (arg1 == 7) {
             base = 0x19;
         } else {
             base = 0x12;
         }
-    } else if (ckind == CHKIND_SANDBAG) {
+    } else if (ckind == ChKind_Sandbag) {
         return 59.0F;
-    } else if (ckind == CHKIND_POPO) {
+    } else if (ckind == ChKind_Popo) {
         base = 0xE;
-    } else if (ckind > CKIND_SEAK) {
+    } else if (ckind > CKind_Seak) {
         base = ckind - 1;
     }
     return base + arg2 * 30;
@@ -4145,7 +4143,8 @@ void fn_80169000(MatchEnd* arg0, u8* arg1)
     }
 }
 
-u8 gm_80169238(u8 ckind)
+/// @param ckind ::CharacterKind
+u8 gm_GetNumCostumesForCKind(u8 ckind)
 {
     /// @todo Matching tactic: pad the pre-inline statement count so MWCC
     /// keeps direct calls to this accessor instead of auto-inlining them.

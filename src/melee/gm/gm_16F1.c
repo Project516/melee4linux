@@ -333,8 +333,7 @@ int fn_8016FAD4(struct lbl_8046B6A0_24C_t* rules, int kind, int flags,
     for (i = 0; i < 6; i++) {
         if (x58[i].x0 != 3) {
             u16 sd = x58[i].xA;
-            scores[i] =
-                x58[i].x20 - (x58[i].x24 - sd) + *(s8*) &rules->xC * sd;
+            scores[i] = x58[i].x20 - (x58[i].x24 - sd) + rules->xC * sd;
         }
     }
 
@@ -446,9 +445,9 @@ int fn_801701B8(void)
     return lbl_804D65A0.x0;
 }
 
-int fn_801701C0(void* arg0, int arg1, int arg2)
+int fn_801701C0(struct lbl_8046B6A0_24C_t* rules, int arg1, int arg2)
 {
-    struct lbl_8046B6A0_24C_t* rules = arg0;
+    u8* tmp;
     const struct lbl_803B7A60_t* zeroes = &lbl_803B7A60;
     u8* flags = rules->pad3F0;
     struct lbl_8046B6A0_24C_58_t* x58 = rules->x58;
@@ -471,8 +470,7 @@ int fn_801701C0(void* arg0, int arg1, int arg2)
         for (k = 0; k < 6; k++) {
             if (x58[k].x0 != 3) {
                 u16 xA = x58[k].xA;
-                scores[k] =
-                    (x58[k].x20 - (x58[k].x24 - xA)) + *(s8*) &rules->xC * xA;
+                scores[k] = (x58[k].x20 - (x58[k].x24 - xA)) + rules->xC * xA;
             }
         }
 
@@ -500,7 +498,7 @@ int fn_801701C0(void* arg0, int arg1, int arg2)
 
     switch (arg2) {
     case 0xD7:
-        if ((unsigned) fn_801701C0(arg0, arg1, 0xD9) != 0) {
+        if ((unsigned) fn_801701C0(rules, arg1, 0xD9) != 0) {
             return 0;
         }
         {
@@ -517,7 +515,7 @@ int fn_801701C0(void* arg0, int arg1, int arg2)
         return 0;
 
     case 0xD8:
-        if ((unsigned) fn_801701C0(arg0, arg1, 0xDA) != 0) {
+        if ((unsigned) fn_801701C0(rules, arg1, 0xDA) != 0) {
             return 0;
         }
         {
@@ -594,7 +592,7 @@ int fn_801701C0(void* arg0, int arg1, int arg2)
     }
 
     case 0xDC: {
-        if ((unsigned) fn_801701C0(arg0, arg1, 0xDB) == 0) {
+        if ((unsigned) fn_801701C0(rules, arg1, 0xDB) == 0) {
             {
                 int i;
                 for (i = 0; i < 4; i++) {
@@ -644,7 +642,7 @@ int fn_801701C0(void* arg0, int arg1, int arg2)
     }
 
     case 0xDE: {
-        if ((unsigned) fn_801701C0(arg0, arg1, 0xDD) == 0) {
+        if ((unsigned) fn_801701C0(rules, arg1, 0xDD) == 0) {
             {
                 int i;
                 for (i = 0; i < 4; i++) {
@@ -697,7 +695,7 @@ int fn_801701C0(void* arg0, int arg1, int arg2)
     }
 
     case 0xE0: {
-        if ((unsigned) fn_801701C0(arg0, arg1, 0xDF) == 0) {
+        if ((unsigned) fn_801701C0(rules, arg1, 0xDF) == 0) {
             {
                 int i;
                 for (i = 0; i < 4; i++) {
@@ -748,7 +746,7 @@ int fn_801701C0(void* arg0, int arg1, int arg2)
     }
 
     case 0xE2: {
-        if ((unsigned) fn_801701C0(arg0, arg1, 0xE1) == 0) {
+        if ((unsigned) fn_801701C0(rules, arg1, 0xE1) == 0) {
             {
                 int i;
                 for (i = 0; i < 4; i++) {
@@ -972,9 +970,8 @@ int fn_801701C0(void* arg0, int arg1, int arg2)
                     }
                 }
             }
-            if (!(((u8*) x58)[arg1 * sizeof(*x58) + 3] & 1) &&
-                rankings[arg1] == 0 && x58[arg1].x20 == 0)
-            {
+            tmp = &x58[arg1].x3;
+            if (!(*tmp & 1) && rankings[arg1] == 0 && x58[arg1].x20 == 0) {
                 return 1;
             }
         } else {
@@ -993,15 +990,13 @@ int fn_801701C0(void* arg0, int arg1, int arg2)
                         }
                     }
                 }
-                if (!(((u8*) x58)[arg1 * sizeof(*x58) + 3] & 1) &&
-                    x58[arg1].x5 == 0 && x58[arg1].x20 == 0)
-                {
+                tmp = &x58[arg1].x3;
+                if (!(*tmp & 1) && x58[arg1].x5 == 0 && x58[arg1].x20 == 0) {
                     return 1;
                 }
             } else {
-                if (!(((u8*) x58)[arg1 * sizeof(*x58) + 3] & 1) &&
-                    x58[arg1].x20 == 0)
-                {
+                tmp = &x58[arg1].x3;
+                if (!(*tmp & 1) && x58[arg1].x20 == 0) {
                     return 1;
                 }
             }
@@ -1820,10 +1815,10 @@ u8 gm_DecideChallengerCpuLevel(u8 cpu_ckind, UNUSED u8 human_nametag)
 u8 gm_80172D78(void)
 {
     u32* temp_r31 = &gmMainLib_8015ED98()->x4;
-    if (!gm_IsCKindUnlocked(CKIND_MEWTWO) && *temp_r31 >= 0x11940) {
-        return CKIND_MEWTWO;
+    if (!gm_IsCKindUnlocked(CKind_Mewtwo) && *temp_r31 >= 0x11940) {
+        return CKind_Mewtwo;
     }
-    return CHKIND_NONE;
+    return ChKind_None;
 }
 
 static inline const struct lbl_803B7AD0_t* inline1(u32 arg0)
@@ -1851,7 +1846,7 @@ u8 gm_80172DD4(u32 arg0)
     if (var_r29 != NULL) {
         return gm_GetCKindByUnlockIndex(var_r29->x0);
     }
-    return CHKIND_NONE;
+    return ChKind_None;
 }
 
 u8 gm_80172E74(void)
@@ -1866,10 +1861,10 @@ u8 gm_80172E74(void)
             count += 1;
         }
     }
-    if (count >= 0xE && !gm_IsCKindUnlocked(CKIND_MARS)) {
-        return CKIND_MARS;
+    if (count >= 0xE && !gm_IsCKindUnlocked(CKind_Mars)) {
+        return CKind_Mars;
     }
-    return CHKIND_NONE;
+    return ChKind_None;
 }
 
 u16 gm_80172F00(u32 arg0)
@@ -1952,46 +1947,46 @@ u8 fn_80173098(int arg0)
 
     temp_r3 = fn_8017DEC8(arg0);
     if (temp_r3->xC.xD == 0) {
-        if (temp_r3->x0.ckind == CKIND_MARS &&
-            !gm_IsCKindUnlocked(CKIND_EMBLEM))
+        if (temp_r3->x0.ckind == CKind_Mars &&
+            !gm_IsCKindUnlocked(CKind_Emblem))
         {
-            return CKIND_EMBLEM;
+            return CKind_Emblem;
         }
-        if (temp_r3->x0.ckind == CKIND_MARIO &&
-            !gm_IsCKindUnlocked(CKIND_DRMARIO))
+        if (temp_r3->x0.ckind == CKind_Mario &&
+            !gm_IsCKindUnlocked(CKind_DrMario))
         {
-            return CKIND_DRMARIO;
+            return CKind_DrMario;
         }
     }
     unlocked_chars_count = fn_80173098_CountUnlocked();
     (void) unlocked_chars_count;
-    if (unlocked_chars_count >= 10 && !gm_IsCKindUnlocked(CKIND_CLINK)) {
-        return CKIND_CLINK;
+    if (unlocked_chars_count >= 10 && !gm_IsCKindUnlocked(CKind_CLink)) {
+        return CKind_CLink;
     }
-    if (fn_80172FAC() && !gm_IsCKindUnlocked(CKIND_GAMEWATCH)) {
-        return CKIND_GAMEWATCH;
+    if (fn_80172FAC() && !gm_IsCKindUnlocked(CKind_GameWatch)) {
+        return CKind_GameWatch;
     }
     if (arg0 == 0) {
         temp_r31 = gm_GetAdventureData();
-        if (!gm_IsCKindUnlocked(CKIND_LUIGI) && temp_r31->x74 != 0 &&
+        if (!gm_IsCKindUnlocked(CKind_Luigi) && temp_r31->x74 != 0 &&
             temp_r31->x75 != 0)
         {
-            return CKIND_LUIGI;
+            return CKind_Luigi;
         }
     }
-    if (!gm_IsCKindUnlocked(CKIND_PURIN)) {
-        return CKIND_PURIN;
+    if (!gm_IsCKindUnlocked(CKind_Purin)) {
+        return CKind_Purin;
     }
-    return CHKIND_NONE;
+    return ChKind_None;
 }
 
 u8 gm_80173224(int arg0, int arg1)
 {
-    u8 ckind = CHKIND_NONE;
+    u8 ckind = ChKind_None;
     if (arg1 != 0) {
         ckind = fn_80173098(arg0);
     }
-    if (ckind == CHKIND_NONE) {
+    if (ckind == ChKind_None) {
         ckind = gm_80172E74();
     }
     return ckind;
@@ -2000,13 +1995,13 @@ u8 gm_80173224(int arg0, int arg1)
 /// check for event character unlocks?
 u8 gm_801732D8(u8 arg0)
 {
-    if (!gm_IsCKindUnlocked(CKIND_GANON) && gm_801BEBC0(arg0) == 0x1C) {
-        return CKIND_GANON;
+    if (!gm_IsCKindUnlocked(CKind_Ganon) && gm_801BEBC0(arg0) == 0x1C) {
+        return CKind_Ganon;
     }
-    if (!gm_IsCKindUnlocked(CKIND_PICHU) && gm_801BEBC0(arg0) == 0xE) {
-        return CKIND_PICHU;
+    if (!gm_IsCKindUnlocked(CKind_Pichu) && gm_801BEBC0(arg0) == 0xE) {
+        return CKind_Pichu;
     }
-    return CHKIND_NONE;
+    return ChKind_None;
 }
 
 u16 gm_8017335C(void)
@@ -2027,10 +2022,10 @@ u16 gm_8017335C(void)
 
 u8 gm_801733D8(void)
 {
-    if (!gm_IsCKindUnlocked(CKIND_GAMEWATCH) && fn_80172FAC()) {
-        return CKIND_GAMEWATCH;
+    if (!gm_IsCKindUnlocked(CKind_GameWatch) && fn_80172FAC()) {
+        return CKind_GameWatch;
     }
-    return CHKIND_NONE;
+    return ChKind_None;
 }
 
 u16 gm_8017341C(void)
@@ -2043,10 +2038,10 @@ u16 gm_8017341C(void)
 
 u8 gm_80173460(s8 arg0)
 {
-    if (!gm_IsCKindUnlocked(CKIND_FALCO)) {
-        return CKIND_FALCO;
+    if (!gm_IsCKindUnlocked(CKind_Falco)) {
+        return CKind_Falco;
     }
-    return CHKIND_NONE;
+    return ChKind_None;
 }
 
 u16 gm_80173498(void)

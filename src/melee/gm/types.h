@@ -97,16 +97,14 @@ struct GameScene {
 };
 ASSERT_SIZE(struct GameScene, 0x14);
 
-struct gmm_x1CB0 {
+struct GamePrefs {
     /* +0 */ u8 item_freq;
-    /* +1 */ u8 pad_x1[0x8 - 0x1];
     /* +8 */ u64 item_mask;
     /* +10 */ u8 rumble_enabled[PAD_MAX_CONTROLLERS];
-    /* +14 */ u8 sound_balance;
+    /* +14 */ s8 sound_balance;
     /* +15 */ u8 deflicker;
     /* +16 */ u8 saved_language; /* 0x1CC6 */
     /* +18 */ u32 stage_mask;
-    /* +1C */ u8 padding_x16[0x1];
 };
 
 struct FighterData {
@@ -208,7 +206,7 @@ struct GameRules {
     /* 0x04 */ u8 stock_count;
     /* 0x05 */ u8 handicap;
     /* 0x06 */ u8 damage_ratio;
-    /* 0x07 */ u8 unk_x7;
+    /* 0x07 */ u8 stage_sel; ///< ::StageSelectMode
     /* 0x08 */ u8 stock_time_limit;
     /* 0x09 */ u8 friendly_fire;
     /* 0x0A */ u8 pause;
@@ -307,7 +305,7 @@ struct gmm_x1868 {
     /* 0x0328 */ u8 padding_x1B80[0xF8];
     /* 0x0420 */ u32 x1C88[3];
     /* 0x042C */ u8 padding_x1C88[0x1C];
-    /* 0x0448 */ struct gmm_x1CB0 x1CB0;
+    /* 0x0448 */ struct GamePrefs x1CB0;
     /* 0x0468 */ s16 trophy_count;
     /* 0x046A */ u16 trophy_category_flags;
     /* 0x046C */ u16 trophy_flags[TY_TROPHY_COUNT];
@@ -424,7 +422,7 @@ struct lbl_8046B6A0_24C_t {
     u8 is_teams;
     u8 x7;
     u32 x8;
-    u8 xC;
+    s8 xC;
     u8 xD;
     u8 xE;
     u8 padF[0x16 - 0xF];
@@ -802,7 +800,7 @@ ASSERT_SIZE(struct UnkAdventureData, 0x80);
 struct UnkAllstarData {
     /*  +0 */ struct Unk1PData x0;
     /* +74*/ u16 x74;                      ///< current percent
-    /* +76*/ u8 x76[CKIND_PLAYABLE_COUNT]; ///< character id array
+    /* +76*/ u8 x76[CKind_Playable_Count]; ///< character id array
     /* +90*/ u8 x90[4];
     /* +94*/ u8 _94[2];
     /* +94*/ u8 x96[6];
