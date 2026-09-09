@@ -60,7 +60,7 @@ countdown expires. The HSD object remains attached through this operation.
 
 ## Moving and removing an owner
 
-`HSD_GObjPLink_8039032C` moves an existing owner using the same placement modes
+`HSD_GObjPLink_ChangeGObjPri_Unk` moves an existing owner using the same placement modes
 as `CreateGObj`. It removes the owner's processes from the scheduler while
 reversing their `child` list. It then unlinks and reinserts the owner.
 Reinserting each process restores the original `child` order and places its
@@ -74,7 +74,7 @@ does not cause a process to run twice in the current pass. It replaces tags
 that would match the next pass with the previous tag, so the moved processes
 do not skip that pass because of an old tag.
 
-`HSD_GObjPLink_80390228` removes attachments in this order: user data, HSD
+`HSD_GObjFree` removes attachments in this order: user data, HSD
 object, processes, then render link. It then unlinks the owner and returns
 its storage to `gobj_alloc_data`. The private `unlinkObject` helper updates
 both neighbors and the head or tail when needed.
